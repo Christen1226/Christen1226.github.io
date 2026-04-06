@@ -271,7 +271,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [reporterCount, setReporterCount] = useState(0);
   const [reports, setReports] = useState<CommunityReport[]>([]);
   const [dancers, setDancers] = useState<Dancer[]>([]);
-  const [competition, setCompetitionState] = useState<Competition | null>(MOCK_COMPETITIONS[0]);
+  const [competition, setCompetitionState] = useState<Competition | null>(null);
   const [allCompetitions, setAllCompetitions] = useState<Competition[]>(MOCK_COMPETITIONS);
   const [userLoaded, setUserLoaded] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -281,7 +281,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [scheduleImages, setScheduleImages] = useState<UploadedImage[]>([]);
   const [scoringImages, setScoringImages] = useState<UploadedImage[]>([]);
   // Track which competition IDs the user has joined (persisted locally)
-  const [joinedCompetitionIds, setJoinedCompetitionIds] = useState<string[]>(["c1"]);
+  const [joinedCompetitionIds, setJoinedCompetitionIds] = useState<string[]>([]);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const competitionRef = useRef<Competition | null>(competition);

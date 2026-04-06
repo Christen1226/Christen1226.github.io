@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -19,6 +19,37 @@ import { ReportsFeed } from "@/components/ReportsFeed";
 import { ResourcesWidget } from "@/components/ResourcesWidget";
 import { useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+
+function NoCompetitionState() {
+  const colors = useColors();
+  const router = useRouter();
+
+  return (
+    <View style={[styles.emptyWrap, { borderColor: colors.border }]}>
+      <View style={[styles.emptyIconCircle, { backgroundColor: "rgba(155,111,232,0.12)" }]}>
+        <MaterialCommunityIcons name="trophy-outline" size={36} color={colors.violet} />
+      </View>
+      <Text style={[styles.emptyHeading, { color: colors.foreground }]}>
+        No competition yet
+      </Text>
+      <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+        Search for an existing competition or create one to start tracking stage numbers with your crew.
+      </Text>
+      <Pressable
+        style={({ pressed }) => [
+          styles.emptyBtn,
+          { backgroundColor: colors.violet, opacity: pressed ? 0.8 : 1 },
+        ]}
+        onPress={() => router.navigate("/(tabs)/competition")}
+      >
+        <Feather name="search" size={15} color={colors.foreground} />
+        <Text style={[styles.emptyBtnText, { color: colors.foreground }]}>
+          Find a Competition
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -85,10 +116,16 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <LiveTrackerCard />
-        <MyNumbersWidget />
-        <ReportsFeed />
-        <ResourcesWidget />
+        {competition === null ? (
+          <NoCompetitionState />
+        ) : (
+          <>
+            <LiveTrackerCard />
+            <MyNumbersWidget />
+            <ReportsFeed />
+            <ResourcesWidget />
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -137,5 +174,46 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 13,
     fontFamily: "Inter_700Bold",
+  },
+  emptyWrap: {
+    marginTop: 32,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 28,
+    alignItems: "center",
+    gap: 12,
+  },
+  emptyIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  emptyHeading: {
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
+  emptyBody: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  emptyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 22,
+    paddingVertical: 13,
+    borderRadius: 14,
+    marginTop: 4,
+  },
+  emptyBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
   },
 });
