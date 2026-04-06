@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useUser, useClerk } from "@clerk/expo";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 export interface Dancer {
@@ -70,7 +71,6 @@ interface AppContextValue {
   switchCompetition: (id: string) => void;
   leaveCompetition: (id: string) => void;
   deleteCompetition: (id: string) => void;
-  signIn: (name: string) => void;
   signOut: () => void;
   setProfileImage: (uri: string | null) => void;
 }
@@ -272,8 +272,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [dancers, setDancers] = useState<Dancer[]>([]);
   const [competition, setCompetitionState] = useState<Competition | null>(MOCK_COMPETITIONS[0]);
   const [allCompetitions, setAllCompetitions] = useState<Competition[]>(MOCK_COMPETITIONS);
-  const [isSignedIn, setIsSignedIn] = useState(false);
-  const [userName, setUserName] = useState("");
+  const { user } = useUser();
+  const { signOut: clerkSignOut } = useClerk();
+
+  const isSignedIn = !!user;
+  const userName = user?.fullName
+    || (user?.firstName ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`.trim() : "")
+    || user?.username
+    || user?.primaryEmailAddress?.emailAddress?.split("@")[0]
+    || "User";
+
   const [profileImage, setProfileImageState] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [scheduleImages, setScheduleImages] = useState<UploadedImage[]>([]);
@@ -321,13 +329,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        const userJson = await AsyncStorage.getItem("user");
-        if (userJson) {
-          const user = JSON.parse(userJson);
-          setIsSignedIn(true);
-          setUserName(user.name);
-          if (user.profileImage) setProfileImageState(user.profileImage);
-        }
+        const profileJson = await AsyncStorage.getItem("profileImage");
+        if (profileJson) setProfileImageState(JSON.parse(profileJson));
 
         const joinedJson = await AsyncStorage.getItem("joinedCompetitions");
         if (joinedJson) {
@@ -830,25 +833,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const signIn = useCallback(async (name: string) => {
-    setUserName(name);
-    setIsSignedIn(true);
-    await AsyncStorage.setItem("user", JSON.stringify({ name, profileImage }));
-  }, [profileImage]);
-
   const signOut = useCallback(async () => {
-    setIsSignedIn(false);
-    setUserName("");
     setProfileImageState(null);
-    await AsyncStorage.removeItem("user");
-  }, []);
+    await AsyncStorage.removeItem("profileImage");
+    await clerkSignOut();
+  }, [clerkSignOut]);
 
   const setProfileImage = useCallback(async (uri: string | null) => {
     setProfileImageState(uri);
-    const userJson = await AsyncStorage.getItem("user");
-    const user = userJson ? JSON.parse(userJson) : { name: userName };
-    await AsyncStorage.setItem("user", JSON.stringify({ ...user, profileImage: uri }));
-  }, [userName]);
+    await AsyncStorage.setItem("profileImage", JSON.stringify(uri));
+  }, []);
 
   return (
     <AppContext.Provider
@@ -888,7 +882,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         switchCompetition,
         leaveCompetition,
         deleteCompetition,
-        signIn,
         signOut,
         setProfileImage,
       }}
