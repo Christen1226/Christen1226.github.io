@@ -1,6 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Platform } from "react-native";
 
 export interface Dancer {
   id: string;
@@ -187,13 +186,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const competitionRef = useRef<Competition | null>(competition);
   competitionRef.current = competition;
 
-  // Load persisted data
+  // Load persisted data on startup (not dancers — those load per-competition below)
   useEffect(() => {
     const load = async () => {
       try {
-        const dancersJson = await AsyncStorage.getItem("dancers");
-        if (dancersJson) setDancers(JSON.parse(dancersJson));
-
         const compsJson = await AsyncStorage.getItem("competitions");
         if (compsJson) {
           const saved: Competition[] = JSON.parse(compsJson);
@@ -219,9 +215,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     load();
   }, []);
 
+  // Load dancers for the active competition whenever it changes
   useEffect(() => {
-    AsyncStorage.setItem("dancers", JSON.stringify(dancers)).catch(() => {});
-  }, [dancers]);
+    if (!competition) {
+      setDancers([]);
+      return;
+    }
+    AsyncStorage.getItem(`dancers_${competition.id}`)
+      .then((json) => setDancers(json ? JSON.parse(json) : []))
+      .catch(() => setDancers([]));
+  }, [competition?.id]);
 
   // Polling: start/stop when competition changes
   useEffect(() => {
@@ -290,22 +293,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const saveDancersForComp = useCallback((updated: Dancer[]) => {
+    const compId = competitionRef.current?.id;
+    if (!compId) return;
+    AsyncStorage.setItem(`dancers_${compId}`, JSON.stringify(updated)).catch(() => {});
+  }, []);
+
   const addDancer = useCallback((name: string, numbers: number[]) => {
     const dancer: Dancer = { id: generateId(), name, numbers };
-    setDancers((prev) => [...prev, dancer]);
-  }, []);
+    setDancers((prev) => {
+      const updated = [...prev, dancer];
+      saveDancersForComp(updated);
+      return updated;
+    });
+  }, [saveDancersForComp]);
 
   const removeDancer = useCallback((id: string) => {
-    setDancers((prev) => prev.filter((d) => d.id !== id));
-  }, []);
+    setDancers((prev) => {
+      const updated = prev.filter((d) => d.id !== id);
+      saveDancersForComp(updated);
+      return updated;
+    });
+  }, [saveDancersForComp]);
 
   const updateDancerNumbers = useCallback((id: string, numbers: number[]) => {
-    setDancers((prev) => prev.map((d) => (d.id === id ? { ...d, numbers } : d)));
-  }, []);
+    setDancers((prev) => {
+      const updated = prev.map((d) => (d.id === id ? { ...d, numbers } : d));
+      saveDancersForComp(updated);
+      return updated;
+    });
+  }, [saveDancersForComp]);
 
   const updateDancer = useCallback((id: string, name: string, numbers: number[]) => {
-    setDancers((prev) => prev.map((d) => (d.id === id ? { ...d, name, numbers } : d)));
-  }, []);
+    setDancers((prev) => {
+      const updated = prev.map((d) => (d.id === id ? { ...d, name, numbers } : d));
+      saveDancersForComp(updated);
+      return updated;
+    });
+  }, [saveDancersForComp]);
 
   const setCompetition = useCallback((comp: Competition) => {
     setCompetitionState(comp);
