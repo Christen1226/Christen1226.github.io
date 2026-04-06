@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Number",
-    "slug": "number",
+    "name": "Number - Never Guess Again",
+    "slug": "numberneverguessagain",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "number",
+    "scheme": "numberneverguessagain",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
@@ -15,11 +15,11 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.number.app"
+      "bundleIdentifier": "com.numberneverguessagain.app"
     },
     "android": {
       "backgroundColor": "#0E0A16",
-      "package": "com.number.app"
+      "package": "com.numberneverguessagain.app"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
