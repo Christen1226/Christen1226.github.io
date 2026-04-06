@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Platform } from "react-native";
 
 export interface Dancer {
   id: string;
@@ -39,6 +40,7 @@ interface AppContextValue {
   userName: string;
   userInitials: string;
   profileImage: string | null;
+  isLive: boolean;
   submitCurrentNumber: (num: number) => void;
   submitReport: (type: CommunityReport["type"], message: string) => void;
   confirmReport: (id: string) => void;
@@ -130,10 +132,48 @@ function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
 }
 
+const POLL_INTERVAL_MS = 5000;
+
+function getApiBase(): string {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  if (domain) return `https://${domain}`;
+  // fallback for web where we can use relative URL
+  return "";
+}
+
+async function fetchStage(competitionId: string): Promise<{ currentNumber: number; lastReportedAt: string | null; reporterCount: number } | null> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/stage/${competitionId}`);
+    if (!res.ok) return null;
+    return res.json() as Promise<{ currentNumber: number; lastReportedAt: string | null; reporterCount: number }>;
+  } catch {
+    return null;
+  }
+}
+
+async function postStage(competitionId: string, number: number): Promise<void> {
+  try {
+    await fetch(`${getApiBase()}/api/stage/${competitionId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ number }),
+    });
+  } catch {}
+}
+
+async function resetStage(competitionId: string): Promise<void> {
+  try {
+    await fetch(`${getApiBase()}/api/stage/${competitionId}/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch {}
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [currentNumber, setCurrentNumber] = useState(52);
-  const [lastReportedAt, setLastReportedAt] = useState<Date | null>(new Date(Date.now() - 3 * 60000));
-  const [reporterCount, setReporterCount] = useState(12);
+  const [currentNumber, setCurrentNumber] = useState(0);
+  const [lastReportedAt, setLastReportedAt] = useState<Date | null>(null);
+  const [reporterCount, setReporterCount] = useState(0);
   const [reports, setReports] = useState<CommunityReport[]>(MOCK_REPORTS);
   const [dancers, setDancers] = useState<Dancer[]>([]);
   const [competition, setCompetitionState] = useState<Competition | null>(MOCK_COMPETITIONS[0]);
@@ -141,7 +181,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [userName, setUserName] = useState("");
   const [profileImage, setProfileImageState] = useState<string | null>(null);
+  const [isLive, setIsLive] = useState(false);
 
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const competitionRef = useRef<Competition | null>(competition);
+  competitionRef.current = competition;
+
+  // Load persisted data
   useEffect(() => {
     const load = async () => {
       try {
@@ -151,13 +197,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const compsJson = await AsyncStorage.getItem("competitions");
         if (compsJson) {
           const saved: Competition[] = JSON.parse(compsJson);
-          // Merge mock competitions with any user-created ones
           const userCreated = saved.filter((s) => !MOCK_COMPETITIONS.find((m) => m.id === s.id));
           setAllCompetitions([...MOCK_COMPETITIONS, ...userCreated]);
         }
 
         const activeCompJson = await AsyncStorage.getItem("activeCompetition");
-        if (activeCompJson) setCompetitionState(JSON.parse(activeCompJson));
+        if (activeCompJson) {
+          const active: Competition = JSON.parse(activeCompJson);
+          setCompetitionState(active);
+        }
 
         const userJson = await AsyncStorage.getItem("user");
         if (userJson) {
@@ -175,6 +223,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem("dancers", JSON.stringify(dancers)).catch(() => {});
   }, [dancers]);
 
+  // Polling: start/stop when competition changes
+  useEffect(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+
+    if (!competition) return;
+
+    const poll = async () => {
+      const data = await fetchStage(competition.id);
+      if (data) {
+        setIsLive(true);
+        setCurrentNumber(data.currentNumber);
+        setReporterCount(data.reporterCount);
+        if (data.lastReportedAt) setLastReportedAt(new Date(data.lastReportedAt));
+      } else {
+        setIsLive(false);
+      }
+    };
+
+    // Fetch immediately on mount/competition switch
+    poll();
+
+    pollingRef.current = setInterval(poll, POLL_INTERVAL_MS);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [competition?.id]);
+
   const userInitials = userName
     .split(" ")
     .map((w) => w[0])
@@ -183,9 +265,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     .slice(0, 2);
 
   const submitCurrentNumber = useCallback((num: number) => {
+    const comp = competitionRef.current;
     setCurrentNumber(num);
     setLastReportedAt(new Date());
     setReporterCount((c) => c + 1);
+    if (comp) postStage(comp.id, num);
   }, []);
 
   const submitReport = useCallback((type: CommunityReport["type"], message: string) => {
@@ -230,8 +314,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const joinCompetition = useCallback((id: string) => {
     setAllCompetitions((prev) => {
-      const found = prev.find((c) => c.id === id);
-      if (!found) return prev;
       const updated = prev.map((c) =>
         c.id === id ? { ...c, memberCount: c.memberCount + 1 } : c
       );
@@ -243,6 +325,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         JSON.stringify(updated.filter((c) => !MOCK_COMPETITIONS.find((m) => m.id === c.id)))
       ).catch(() => {});
       return updated;
+    });
+    // Fetch current live state for this competition immediately
+    fetchStage(id).then((data) => {
+      if (data) {
+        setCurrentNumber(data.currentNumber);
+        setReporterCount(data.reporterCount);
+        if (data.lastReportedAt) setLastReportedAt(new Date(data.lastReportedAt));
+      }
     });
   }, []);
 
@@ -258,6 +348,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createdBy: userName || "You",
         memberCount: 1,
       };
+      // Reset stage to 0 on the server for a fresh competition
+      resetStage(newComp.id);
+      setCurrentNumber(0);
+      setLastReportedAt(null);
+      setReporterCount(0);
+
       setAllCompetitions((prev) => {
         const updated = [newComp, ...prev];
         const userCreated = updated.filter((c) => !MOCK_COMPETITIONS.find((m) => m.id === c.id));
@@ -304,6 +400,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         userName,
         userInitials,
         profileImage,
+        isLive,
         submitCurrentNumber,
         submitReport,
         confirmReport,

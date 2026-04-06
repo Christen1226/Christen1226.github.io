@@ -2,7 +2,6 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -31,7 +30,7 @@ function formatTimeAgo(date: Date): string {
 
 export function LiveTrackerCard() {
   const colors = useColors();
-  const { currentNumber, lastReportedAt, reporterCount, submitCurrentNumber } = useApp();
+  const { currentNumber, lastReportedAt, reporterCount, submitCurrentNumber, isLive } = useApp();
   const [inputValue, setInputValue] = useState("");
   const scale = useSharedValue(1);
   const glow = useSharedValue(1);
@@ -54,17 +53,36 @@ export function LiveTrackerCard() {
   return (
     <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.header}>
-        <View style={[styles.liveDot, { backgroundColor: colors.green }]} />
+        <View style={[styles.liveDot, { backgroundColor: isLive ? colors.green : colors.mutedForeground }]} />
         <Text style={[styles.headerLabel, { color: colors.mutedForeground }]}>ON STAGE NOW</Text>
+        <View style={styles.syncBadge}>
+          {isLive ? (
+            <>
+              <View style={[styles.syncDot, { backgroundColor: colors.green }]} />
+              <Text style={[styles.syncText, { color: colors.green }]}>LIVE</Text>
+            </>
+          ) : (
+            <>
+              <Feather name="wifi-off" size={9} color={colors.mutedForeground} />
+              <Text style={[styles.syncText, { color: colors.mutedForeground }]}>LOCAL</Text>
+            </>
+          )}
+        </View>
       </View>
 
       <Animated.Text style={[styles.bigNumber, { color: colors.lavender }, animStyle]}>
-        {currentNumber}
+        {currentNumber === 0 ? "—" : currentNumber}
       </Animated.Text>
 
-      {lastReportedAt && (
-        <Text style={[styles.timestamp, { color: colors.redTime }]}>
-          {formatTimeAgo(lastReportedAt)} · {reporterCount} reporters
+      {currentNumber === 0 && (
+        <Text style={[styles.waitingText, { color: colors.mutedForeground }]}>
+          Waiting for first report…
+        </Text>
+      )}
+
+      {lastReportedAt && currentNumber > 0 && (
+        <Text style={[styles.timestamp, { color: colors.mutedForeground }]}>
+          {formatTimeAgo(lastReportedAt)} · {reporterCount} reporter{reporterCount !== 1 ? "s" : ""}
         </Text>
       )}
 
@@ -126,13 +144,34 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 3,
     fontFamily: "Inter_500Medium",
+    flex: 1,
+  },
+  syncBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  syncDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  syncText: {
+    fontSize: 9,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 1.5,
   },
   bigNumber: {
     fontSize: 80,
     letterSpacing: 4,
     fontFamily: "Inter_700Bold",
     lineHeight: 88,
-    textShadow: "0px 0px 24px rgba(155,111,232,0.6)",
+  },
+  waitingText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
+    marginBottom: 16,
   },
   timestamp: {
     fontSize: 11,
