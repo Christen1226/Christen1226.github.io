@@ -175,7 +175,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentNumber, setCurrentNumber] = useState(0);
   const [lastReportedAt, setLastReportedAt] = useState<Date | null>(null);
   const [reporterCount, setReporterCount] = useState(0);
-  const [reports, setReports] = useState<CommunityReport[]>(MOCK_REPORTS);
+  const [reports, setReports] = useState<CommunityReport[]>([]);
   const [dancers, setDancers] = useState<Dancer[]>([]);
   const [competition, setCompetitionState] = useState<Competition | null>(MOCK_COMPETITIONS[0]);
   const [allCompetitions, setAllCompetitions] = useState<Competition[]>(MOCK_COMPETITIONS);
@@ -228,6 +228,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .catch(() => setDancers([]));
   }, [competition?.id]);
 
+  // Load reports for the active competition whenever it changes
+  // Seed mock reports for c1 on first visit (single device only)
+  useEffect(() => {
+    if (!competition) {
+      setReports([]);
+      return;
+    }
+    const key = `reports_${competition.id}`;
+    AsyncStorage.getItem(key).then((json) => {
+      if (json) {
+        const parsed = JSON.parse(json) as Array<CommunityReport & { timestamp: string }>;
+        setReports(parsed.map((r) => ({ ...r, timestamp: new Date(r.timestamp) })));
+      } else if (competition.id === "c1") {
+        // Seed mock alerts for Starbound 2026 on first open
+        setReports(MOCK_REPORTS);
+        AsyncStorage.setItem(key, JSON.stringify(MOCK_REPORTS)).catch(() => {});
+      } else {
+        setReports([]);
+      }
+    }).catch(() => setReports([]));
+  }, [competition?.id]);
+
   // Polling: start/stop when competition changes
   useEffect(() => {
     if (pollingRef.current) {
@@ -277,6 +299,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (comp) postStage(comp.id, num);
   }, []);
 
+  const saveReportsForComp = useCallback((updated: CommunityReport[]) => {
+    const compId = competitionRef.current?.id;
+    if (!compId) return;
+    AsyncStorage.setItem(`reports_${compId}`, JSON.stringify(updated)).catch(() => {});
+  }, []);
+
   const submitReport = useCallback((type: CommunityReport["type"], message: string) => {
     const newReport: CommunityReport = {
       id: generateId(),
@@ -286,14 +314,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       timestamp: new Date(),
       reporter: userName || "Anonymous",
     };
-    setReports((prev) => [newReport, ...prev]);
-  }, [userName]);
+    setReports((prev) => {
+      const updated = [newReport, ...prev];
+      saveReportsForComp(updated);
+      return updated;
+    });
+  }, [userName, saveReportsForComp]);
 
   const confirmReport = useCallback((id: string) => {
-    setReports((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, confirmations: r.confirmations + 1 } : r))
-    );
-  }, []);
+    setReports((prev) => {
+      const updated = prev.map((r) => (r.id === id ? { ...r, confirmations: r.confirmations + 1 } : r));
+      saveReportsForComp(updated);
+      return updated;
+    });
+  }, [saveReportsForComp]);
 
   const refreshStage = useCallback(async () => {
     const comp = competitionRef.current;
