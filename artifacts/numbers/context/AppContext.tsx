@@ -33,6 +33,7 @@ interface AppContextValue {
   isSignedIn: boolean;
   userName: string;
   userInitials: string;
+  profileImage: string | null;
   submitCurrentNumber: (num: number) => void;
   submitReport: (type: CommunityReport["type"], message: string) => void;
   confirmReport: (id: string) => void;
@@ -42,6 +43,7 @@ interface AppContextValue {
   setCompetition: (comp: Competition) => void;
   signIn: (name: string) => void;
   signOut: () => void;
+  setProfileImage: (uri: string | null) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -93,6 +95,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [competition, setCompetitionState] = useState<Competition | null>(DEFAULT_COMPETITION);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [userName, setUserName] = useState("");
+  const [profileImage, setProfileImageState] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -104,6 +107,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const user = JSON.parse(userJson);
           setIsSignedIn(true);
           setUserName(user.name);
+          if (user.profileImage) setProfileImageState(user.profileImage);
         }
       } catch {}
     };
@@ -165,14 +169,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const signIn = useCallback(async (name: string) => {
     setUserName(name);
     setIsSignedIn(true);
-    await AsyncStorage.setItem("user", JSON.stringify({ name }));
-  }, []);
+    await AsyncStorage.setItem("user", JSON.stringify({ name, profileImage }));
+  }, [profileImage]);
 
   const signOut = useCallback(async () => {
     setIsSignedIn(false);
     setUserName("");
+    setProfileImageState(null);
     await AsyncStorage.removeItem("user");
   }, []);
+
+  const setProfileImage = useCallback(async (uri: string | null) => {
+    setProfileImageState(uri);
+    const userJson = await AsyncStorage.getItem("user");
+    const user = userJson ? JSON.parse(userJson) : { name: userName };
+    await AsyncStorage.setItem("user", JSON.stringify({ ...user, profileImage: uri }));
+  }, [userName]);
 
   return (
     <AppContext.Provider
@@ -186,6 +198,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isSignedIn,
         userName,
         userInitials,
+        profileImage,
         submitCurrentNumber,
         submitReport,
         confirmReport,
@@ -195,6 +208,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCompetition,
         signIn,
         signOut,
+        setProfileImage,
       }}
     >
       {children}

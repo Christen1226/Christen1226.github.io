@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -21,7 +22,7 @@ import { useColors } from "@/hooks/useColors";
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { competition, userName, userInitials, isSignedIn } = useApp();
+  const { competition, userInitials, isSignedIn, profileImage } = useApp();
   const router = useRouter();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -53,9 +54,14 @@ export default function HomeScreen() {
 
           <Pressable
             onPress={() => router.push("/profile")}
-            style={[styles.avatar, { backgroundColor: colors.violet }]}
+            style={[
+              styles.avatar,
+              { backgroundColor: profileImage ? "transparent" : colors.violet },
+            ]}
           >
-            {isSignedIn && userInitials ? (
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+            ) : isSignedIn && userInitials ? (
               <Text style={[styles.avatarText, { color: colors.foreground }]}>{userInitials}</Text>
             ) : (
               <Feather name="user" size={16} color={colors.foreground} />
@@ -105,6 +111,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   avatarText: {
     fontSize: 13,
