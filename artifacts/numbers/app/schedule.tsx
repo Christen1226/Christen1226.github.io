@@ -16,21 +16,28 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useApp } from "@/context/AppContext";
+import { UploadedImage, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
+
+function timeAgo(iso: string): string {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
 
 export default function ScheduleScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { competition, scheduleImage, uploadSchedule, joinedCompetitionIds } = useApp();
+  const { competition, scheduleImages, uploadSchedule, deleteScheduleImage, joinedCompetitionIds } = useApp();
   const isJoined = !!competition && joinedCompetitionIds.includes(competition.id);
 
-  // pendingImage = picked but not yet published
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Success toast
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = () => {
@@ -71,23 +78,20 @@ export default function ScheduleScreen() {
     showToast();
   };
 
-  const handleRetake = async () => {
-    setPendingImage(null);
-    await pickImage();
+  const handleDelete = async (img: UploadedImage) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setDeletingId(img.id);
+    await deleteScheduleImage(img.id);
+    setDeletingId(null);
   };
 
-  const handleCancel = () => {
-    setPendingImage(null);
-  };
-
-  // ── PREVIEW STATE ──────────────────────────────────────────────────────────
+  // ── PREVIEW STATE ─────────────────────────────────────────────────────────
   if (pendingImage) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        {/* Preview header */}
         <View style={[styles.header, { paddingTop: topPad + 8 }]}>
           <Pressable
-            onPress={handleCancel}
+            onPress={() => setPendingImage(null)}
             style={({ pressed }) => [styles.backBtn, { opacity: pressed ? 0.6 : 1 }]}
           >
             <Feather name="x" size={20} color={colors.foreground} />
@@ -102,35 +106,22 @@ export default function ScheduleScreen() {
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: Platform.OS === "web" ? 40 : insets.bottom + 32 },
-          ]}
+          contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === "web" ? 40 : insets.bottom + 32 }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Preview image */}
-          <Image
-            source={{ uri: pendingImage }}
-            style={styles.previewImage}
-            resizeMode="contain"
-          />
+          <Image source={{ uri: pendingImage }} style={styles.previewImage} resizeMode="contain" />
 
-          {/* Action banner */}
           <View style={[styles.previewBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Feather name="info" size={14} color={colors.mutedForeground} />
             <Text style={[styles.previewBannerText, { color: colors.mutedForeground }]}>
-              Once published, this schedule is visible to everyone in{" "}
-              <Text style={{ color: colors.lavender }}>
-                {competition?.name ?? "your competition"}
-              </Text>
-              .
+              This will be added to the schedule gallery for{" "}
+              <Text style={{ color: colors.lavender }}>{competition?.name ?? "your competition"}</Text>.
             </Text>
           </View>
 
-          {/* Buttons */}
           <View style={styles.previewActions}>
             <Pressable
-              onPress={handleRetake}
+              onPress={async () => { setPendingImage(null); await pickImage(); }}
               style={({ pressed }) => [
                 styles.retakeBtn,
                 { borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
@@ -154,7 +145,7 @@ export default function ScheduleScreen() {
                 <Feather name="upload-cloud" size={16} color={colors.foreground} />
               )}
               <Text style={[styles.publishBtnText, { color: colors.foreground }]}>
-                {publishing ? "Publishing…" : "Publish to Competition"}
+                {publishing ? "Publishing…" : "Add to Gallery"}
               </Text>
             </Pressable>
           </View>
@@ -163,10 +154,9 @@ export default function ScheduleScreen() {
     );
   }
 
-  // ── NORMAL STATE ───────────────────────────────────────────────────────────
+  // ── GALLERY STATE ──────────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 8 }]}>
         <Pressable
           onPress={() => router.back()}
@@ -193,39 +183,82 @@ export default function ScheduleScreen() {
             <Feather name="upload" size={16} color={colors.foreground} />
           </Pressable>
         )}
-        {!isJoined && <View style={styles.uploadBtn} />}
+        {!isJoined && <View style={styles.uploadBtnPlaceholder} />}
       </View>
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: Platform.OS === "web" ? 40 : insets.bottom + 32 },
-        ]}
+        contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === "web" ? 40 : insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        {scheduleImage ? (
-          <View style={styles.imageWrapper}>
-            <Image
-              source={{ uri: scheduleImage }}
-              style={styles.scheduleImage}
-              resizeMode="contain"
-            />
-            {isJoined && (
-              <Pressable
-                onPress={pickImage}
-                style={({ pressed }) => [
-                  styles.replaceBtn,
-                  { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-                ]}
-              >
-                <Feather name="refresh-cw" size={14} color={colors.mutedForeground} />
-                <Text style={[styles.replaceBtnText, { color: colors.mutedForeground }]}>
-                  Replace schedule
+        {scheduleImages.length > 0 ? (
+          <>
+            {/* Count banner */}
+            <View style={[styles.countBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Feather name="layers" size={13} color={colors.violet} />
+              <Text style={[styles.countText, { color: colors.mutedForeground }]}>
+                <Text style={{ color: colors.foreground, fontFamily: "Inter_600SemiBold" }}>
+                  {scheduleImages.length}
                 </Text>
-              </Pressable>
-            )}
-          </View>
+                {" "}photo{scheduleImages.length !== 1 ? "s" : ""} uploaded by members
+              </Text>
+              {isJoined && (
+                <Pressable
+                  onPress={pickImage}
+                  style={({ pressed }) => [styles.addMoreBtn, { backgroundColor: colors.violet + "22", opacity: pressed ? 0.7 : 1 }]}
+                >
+                  <Feather name="plus" size={12} color={colors.violet} />
+                  <Text style={[styles.addMoreText, { color: colors.violet }]}>Add</Text>
+                </Pressable>
+              )}
+            </View>
+
+            {/* Gallery */}
+            {scheduleImages.map((img, idx) => (
+              <View
+                key={img.id}
+                style={[styles.imageCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <Image
+                  source={{ uri: img.image }}
+                  style={styles.galleryImage}
+                  resizeMode="contain"
+                />
+                <View style={styles.imageCardFooter}>
+                  <View style={styles.imageMeta}>
+                    <Feather name="clock" size={11} color={colors.mutedForeground} />
+                    <Text style={[styles.imageMetaText, { color: colors.mutedForeground }]}>
+                      {timeAgo(img.uploadedAt)}
+                    </Text>
+                    {img.uploadedBy && (
+                      <Text style={[styles.imageMetaText, { color: colors.mutedForeground }]}>
+                        · {img.uploadedBy}
+                      </Text>
+                    )}
+                    <Text style={[styles.imageMetaText, { color: colors.mutedForeground }]}>
+                      · #{idx + 1}
+                    </Text>
+                  </View>
+                  {isJoined && (
+                    <Pressable
+                      onPress={() => handleDelete(img)}
+                      disabled={deletingId === img.id}
+                      style={({ pressed }) => [
+                        styles.deleteBtn,
+                        { backgroundColor: "#ef444420", opacity: pressed || deletingId === img.id ? 0.5 : 1 },
+                      ]}
+                    >
+                      {deletingId === img.id ? (
+                        <ActivityIndicator size="small" color="#ef4444" />
+                      ) : (
+                        <Feather name="trash-2" size={13} color="#ef4444" />
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+            ))}
+          </>
         ) : isJoined ? (
           <Pressable
             onPress={pickImage}
@@ -237,7 +270,7 @@ export default function ScheduleScreen() {
             <MaterialCommunityIcons name="calendar-clock" size={48} color={colors.violet} />
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No schedule yet</Text>
             <Text style={[styles.emptyHint, { color: colors.mutedForeground }]}>
-              Tap to upload a photo of the competition schedule
+              Be the first to upload a photo of the competition schedule
             </Text>
             <View style={[styles.uploadPill, { backgroundColor: colors.violet }]}>
               <Feather name="upload" size={14} color={colors.foreground} />
@@ -245,13 +278,7 @@ export default function ScheduleScreen() {
             </View>
           </Pressable>
         ) : (
-          <View
-            style={[
-              styles.emptyState,
-              styles.emptyStateReadOnly,
-              { borderColor: colors.border },
-            ]}
-          >
+          <View style={[styles.emptyState, styles.emptyStateReadOnly, { borderColor: colors.border }]}>
             <MaterialCommunityIcons name="calendar-clock" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No schedule yet</Text>
             <Text style={[styles.emptyHint, { color: colors.mutedForeground }]}>
@@ -264,7 +291,7 @@ export default function ScheduleScreen() {
           <Feather name="info" size={14} color={colors.mutedForeground} />
           <Text style={[styles.infoText, { color: colors.mutedForeground }]}>
             {isJoined
-              ? "Uploaded schedules are shared with everyone in this competition. You can also upload from the Competition tab."
+              ? "Multiple members can upload schedule photos. All uploads are shared with everyone in this competition."
               : "Schedule uploads are available to members of this competition only."}
           </Text>
         </View>
@@ -289,7 +316,7 @@ export default function ScheduleScreen() {
         <View style={styles.toastText}>
           <Text style={[styles.toastTitle, { color: colors.foreground }]}>Published!</Text>
           <Text style={[styles.toastSub, { color: colors.mutedForeground }]}>
-            Schedule is now visible to all members
+            Schedule added to the gallery
           </Text>
         </View>
       </Animated.View>
@@ -331,13 +358,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  uploadBtnPlaceholder: {
+    width: 36,
+    height: 36,
+  },
   scroll: { flex: 1 },
   content: {
     paddingHorizontal: 20,
     paddingTop: 8,
-    gap: 16,
+    gap: 14,
   },
-  // Preview state
+  // Preview
   previewImage: {
     width: "100%",
     height: undefined,
@@ -358,9 +389,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     flex: 1,
   },
-  previewActions: {
-    gap: 10,
-  },
+  previewActions: { gap: 10 },
   retakeBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -387,27 +416,69 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.3,
   },
-  // Normal state
-  imageWrapper: { gap: 12 },
-  scheduleImage: {
-    width: "100%",
-    height: undefined,
-    aspectRatio: 0.75,
-    borderRadius: 14,
-  },
-  replaceBtn: {
+  // Gallery
+  countBanner: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     gap: 8,
     borderRadius: 12,
     borderWidth: 1,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  replaceBtnText: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
+  countText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
   },
+  addMoreBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  addMoreText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
+  imageCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  galleryImage: {
+    width: "100%",
+    height: undefined,
+    aspectRatio: 0.75,
+  },
+  imageCardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  imageMeta: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flexWrap: "wrap",
+  },
+  imageMetaText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
+  deleteBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // Empty
   emptyState: {
     borderRadius: 20,
     borderWidth: 1,
@@ -418,9 +489,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 8,
   },
-  emptyStateReadOnly: {
-    opacity: 0.6,
-  },
+  emptyStateReadOnly: { opacity: 0.6 },
   emptyTitle: {
     fontSize: 18,
     fontFamily: "Inter_700Bold",

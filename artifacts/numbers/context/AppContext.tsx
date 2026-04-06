@@ -27,6 +27,13 @@ export interface Competition {
   memberCount: number;
 }
 
+export interface UploadedImage {
+  id: string;
+  image: string;
+  uploadedAt: string;
+  uploadedBy?: string;
+}
+
 interface AppContextValue {
   currentNumber: number;
   lastReportedAt: Date | null;
@@ -40,10 +47,12 @@ interface AppContextValue {
   userInitials: string;
   profileImage: string | null;
   isLive: boolean;
-  scheduleImage: string | null;
+  scheduleImages: UploadedImage[];
   uploadSchedule: (base64Uri: string) => Promise<void>;
-  scoringImage: string | null;
+  deleteScheduleImage: (id: string) => Promise<void>;
+  scoringImages: UploadedImage[];
   uploadScoring: (base64Uri: string) => Promise<void>;
+  deleteScoringImage: (id: string) => Promise<void>;
   refreshStage: () => Promise<void>;
   refreshCompetitions: () => Promise<void>;
   submitCurrentNumber: (num: number) => void;
@@ -199,8 +208,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [userName, setUserName] = useState("");
   const [profileImage, setProfileImageState] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
-  const [scheduleImage, setScheduleImage] = useState<string | null>(null);
-  const [scoringImage, setScoringImage] = useState<string | null>(null);
+  const [scheduleImages, setScheduleImages] = useState<UploadedImage[]>([]);
+  const [scoringImages, setScoringImages] = useState<UploadedImage[]>([]);
   // Track which competition IDs the user has joined (persisted locally)
   const [joinedCompetitionIds, setJoinedCompetitionIds] = useState<string[]>(["c1"]);
 
@@ -285,43 +294,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }).catch(() => setReports([]));
   }, [competition?.id]);
 
-  // Load schedule for active competition (local cache first, then API)
+  // Load schedule images for active competition (local cache first, then API)
   useEffect(() => {
-    setScheduleImage(null); // always clear before loading the new competition's schedule
+    setScheduleImages([]);
     if (!competition) return;
     const compId = competition.id;
     const localKey = `schedule_${compId}`;
-    // Show local cache immediately, then try API in background
     AsyncStorage.getItem(localKey).then((cached) => {
-      if (cached) setScheduleImage(cached);
+      if (cached) {
+        try { setScheduleImages(JSON.parse(cached)); } catch {}
+      }
     }).catch(() => {});
-    // Fetch from API (may override local cache if newer)
     fetch(`${getApiBase()}/api/schedule/${compId}`)
       .then((r) => r.json())
-      .then((data: { image: string | null }) => {
-        if (data.image) {
-          setScheduleImage(data.image);
-          AsyncStorage.setItem(localKey, data.image).catch(() => {});
+      .then((data: { images: UploadedImage[] }) => {
+        if (Array.isArray(data.images) && data.images.length > 0) {
+          setScheduleImages(data.images);
+          AsyncStorage.setItem(localKey, JSON.stringify(data.images)).catch(() => {});
         }
       })
       .catch(() => {});
   }, [competition?.id]);
 
-  // Load scoring docs for active competition (local cache first, then API)
+  // Load scoring images for active competition (local cache first, then API)
   useEffect(() => {
-    setScoringImage(null);
+    setScoringImages([]);
     if (!competition) return;
     const compId = competition.id;
     const localKey = `scoring_${compId}`;
     AsyncStorage.getItem(localKey).then((cached) => {
-      if (cached) setScoringImage(cached);
+      if (cached) {
+        try { setScoringImages(JSON.parse(cached)); } catch {}
+      }
     }).catch(() => {});
     fetch(`${getApiBase()}/api/scoring/${compId}`)
       .then((r) => r.json())
-      .then((data: { image: string | null }) => {
-        if (data.image) {
-          setScoringImage(data.image);
-          AsyncStorage.setItem(localKey, data.image).catch(() => {});
+      .then((data: { images: UploadedImage[] }) => {
+        if (Array.isArray(data.images) && data.images.length > 0) {
+          setScoringImages(data.images);
+          AsyncStorage.setItem(localKey, JSON.stringify(data.images)).catch(() => {});
         }
       })
       .catch(() => {});
@@ -409,28 +420,92 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const uploadSchedule = useCallback(async (base64Uri: string) => {
     const compId = competitionRef.current?.id;
     if (!compId) return;
-    setScheduleImage(base64Uri);
-    AsyncStorage.setItem(`schedule_${compId}`, base64Uri).catch(() => {});
+    // Optimistically append a local entry so UI updates immediately
+    const localEntry: UploadedImage = {
+      id: "local_" + Date.now().toString(36),
+      image: base64Uri,
+      uploadedAt: new Date().toISOString(),
+    };
+    setScheduleImages((prev) => {
+      const updated = [...prev, localEntry];
+      AsyncStorage.setItem(`schedule_${compId}`, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
     try {
-      await fetch(`${getApiBase()}/api/schedule/${compId}`, {
+      const res = await fetch(`${getApiBase()}/api/schedule/${compId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: base64Uri }),
       });
+      if (res.ok) {
+        const data = await res.json() as { ok: boolean; id: string };
+        // Replace the local entry with the server-assigned ID
+        setScheduleImages((prev) => {
+          const updated = prev.map((e) =>
+            e.id === localEntry.id ? { ...e, id: data.id } : e
+          );
+          AsyncStorage.setItem(`schedule_${compId}`, JSON.stringify(updated)).catch(() => {});
+          return updated;
+        });
+      }
+    } catch {}
+  }, []);
+
+  const deleteScheduleImage = useCallback(async (id: string) => {
+    const compId = competitionRef.current?.id;
+    if (!compId) return;
+    setScheduleImages((prev) => {
+      const updated = prev.filter((e) => e.id !== id);
+      AsyncStorage.setItem(`schedule_${compId}`, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+    try {
+      await fetch(`${getApiBase()}/api/schedule/${compId}/${id}`, { method: "DELETE" });
     } catch {}
   }, []);
 
   const uploadScoring = useCallback(async (base64Uri: string) => {
     const compId = competitionRef.current?.id;
     if (!compId) return;
-    setScoringImage(base64Uri);
-    AsyncStorage.setItem(`scoring_${compId}`, base64Uri).catch(() => {});
+    const localEntry: UploadedImage = {
+      id: "local_" + Date.now().toString(36),
+      image: base64Uri,
+      uploadedAt: new Date().toISOString(),
+    };
+    setScoringImages((prev) => {
+      const updated = [...prev, localEntry];
+      AsyncStorage.setItem(`scoring_${compId}`, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
     try {
-      await fetch(`${getApiBase()}/api/scoring/${compId}`, {
+      const res = await fetch(`${getApiBase()}/api/scoring/${compId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: base64Uri }),
       });
+      if (res.ok) {
+        const data = await res.json() as { ok: boolean; id: string };
+        setScoringImages((prev) => {
+          const updated = prev.map((e) =>
+            e.id === localEntry.id ? { ...e, id: data.id } : e
+          );
+          AsyncStorage.setItem(`scoring_${compId}`, JSON.stringify(updated)).catch(() => {});
+          return updated;
+        });
+      }
+    } catch {}
+  }, []);
+
+  const deleteScoringImage = useCallback(async (id: string) => {
+    const compId = competitionRef.current?.id;
+    if (!compId) return;
+    setScoringImages((prev) => {
+      const updated = prev.filter((e) => e.id !== id);
+      AsyncStorage.setItem(`scoring_${compId}`, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+    try {
+      await fetch(`${getApiBase()}/api/scoring/${compId}/${id}`, { method: "DELETE" });
     } catch {}
   }, []);
 
@@ -677,10 +752,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         userInitials,
         profileImage,
         isLive,
-        scheduleImage,
+        scheduleImages,
         uploadSchedule,
-        scoringImage,
+        deleteScheduleImage,
+        scoringImages,
         uploadScoring,
+        deleteScoringImage,
         refreshStage,
         refreshCompetitions,
         submitCurrentNumber,

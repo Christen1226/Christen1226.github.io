@@ -189,7 +189,7 @@ function FormField({
 export default function CompetitionScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, leaveCompetition, createCompetition, updateCompetitionDates, userName, refreshCompetitions, scheduleImage, uploadSchedule, scoringImage, uploadScoring, joinedCompetitionIds } =
+  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, leaveCompetition, createCompetition, updateCompetitionDates, userName, refreshCompetitions, scheduleImages, uploadSchedule, scoringImages, uploadScoring, joinedCompetitionIds } =
     useApp();
   const router = useRouter();
 
@@ -440,19 +440,34 @@ export default function CompetitionScreen() {
                 onPress={() => router.push("/schedule")}
                 style={({ pressed }) => [styles.scheduleViewBtn, { opacity: pressed ? 0.6 : 1 }]}
               >
+                {scheduleImages.length > 0 && (
+                  <View style={[styles.countBadge, { backgroundColor: colors.violet + "33" }]}>
+                    <Text style={[styles.countBadgeText, { color: colors.violet }]}>{scheduleImages.length}</Text>
+                  </View>
+                )}
                 <Text style={[styles.scheduleViewBtnText, { color: colors.violet }]}>View full</Text>
                 <Feather name="chevron-right" size={13} color={colors.violet} />
               </Pressable>
             </View>
 
-            {scheduleImage ? (
-              <Pressable onPress={() => router.push("/schedule")}>
-                <Image
-                  source={{ uri: scheduleImage }}
-                  style={styles.scheduleThumb}
-                  resizeMode="cover"
-                />
-              </Pressable>
+            {scheduleImages.length > 0 ? (
+              <View style={styles.thumbStripWrap}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbStrip}>
+                  {scheduleImages.map((img) => (
+                    <Pressable key={img.id} onPress={() => router.push("/schedule")}>
+                      <Image source={{ uri: img.image }} style={styles.scheduleThumbSmall} resizeMode="cover" />
+                    </Pressable>
+                  ))}
+                  {isJoined && (
+                    <Pressable
+                      onPress={handlePickSchedule}
+                      style={[styles.thumbAddBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    >
+                      <Feather name="plus" size={20} color={colors.violet} />
+                    </Pressable>
+                  )}
+                </ScrollView>
+              </View>
             ) : isJoined ? (
               <Pressable
                 onPress={handlePickSchedule}
@@ -470,12 +485,7 @@ export default function CompetitionScreen() {
                 </Text>
               </Pressable>
             ) : (
-              <View
-                style={[
-                  styles.scheduleUploadArea,
-                  { borderColor: colors.border, opacity: 0.5 },
-                ]}
-              >
+              <View style={[styles.scheduleUploadArea, { borderColor: colors.border, opacity: 0.5 }]}>
                 <Feather name="lock" size={18} color={colors.mutedForeground} />
                 <Text style={[styles.scheduleUploadText, { color: colors.mutedForeground }]}>
                   Members only
@@ -484,21 +494,6 @@ export default function CompetitionScreen() {
                   Join to upload the schedule
                 </Text>
               </View>
-            )}
-
-            {scheduleImage && isJoined && (
-              <Pressable
-                onPress={handlePickSchedule}
-                style={({ pressed }) => [
-                  styles.scheduleReplaceRow,
-                  { opacity: pressed ? 0.6 : 1 },
-                ]}
-              >
-                <Feather name="refresh-cw" size={12} color={colors.mutedForeground} />
-                <Text style={[styles.scheduleReplaceText, { color: colors.mutedForeground }]}>
-                  Replace schedule
-                </Text>
-              </Pressable>
             )}
           </View>
         )}
@@ -513,19 +508,34 @@ export default function CompetitionScreen() {
                 onPress={() => router.push("/scoring")}
                 style={({ pressed }) => [styles.scheduleViewBtn, { opacity: pressed ? 0.6 : 1 }]}
               >
+                {scoringImages.length > 0 && (
+                  <View style={[styles.countBadge, { backgroundColor: colors.violet + "33" }]}>
+                    <Text style={[styles.countBadgeText, { color: colors.violet }]}>{scoringImages.length}</Text>
+                  </View>
+                )}
                 <Text style={[styles.scheduleViewBtnText, { color: colors.violet }]}>View full</Text>
                 <Feather name="chevron-right" size={13} color={colors.violet} />
               </Pressable>
             </View>
 
-            {scoringImage ? (
-              <Pressable onPress={() => router.push("/scoring")}>
-                <Image
-                  source={{ uri: scoringImage }}
-                  style={styles.scheduleThumb}
-                  resizeMode="cover"
-                />
-              </Pressable>
+            {scoringImages.length > 0 ? (
+              <View style={styles.thumbStripWrap}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbStrip}>
+                  {scoringImages.map((img) => (
+                    <Pressable key={img.id} onPress={() => router.push("/scoring")}>
+                      <Image source={{ uri: img.image }} style={styles.scheduleThumbSmall} resizeMode="cover" />
+                    </Pressable>
+                  ))}
+                  {isJoined && (
+                    <Pressable
+                      onPress={handlePickScoring}
+                      style={[styles.thumbAddBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    >
+                      <Feather name="plus" size={20} color={colors.violet} />
+                    </Pressable>
+                  )}
+                </ScrollView>
+              </View>
             ) : isJoined ? (
               <Pressable
                 onPress={handlePickScoring}
@@ -543,12 +553,7 @@ export default function CompetitionScreen() {
                 </Text>
               </Pressable>
             ) : (
-              <View
-                style={[
-                  styles.scheduleUploadArea,
-                  { borderColor: colors.border, opacity: 0.5 },
-                ]}
-              >
+              <View style={[styles.scheduleUploadArea, { borderColor: colors.border, opacity: 0.5 }]}>
                 <Feather name="lock" size={18} color={colors.mutedForeground} />
                 <Text style={[styles.scheduleUploadText, { color: colors.mutedForeground }]}>
                   Members only
@@ -557,21 +562,6 @@ export default function CompetitionScreen() {
                   Join to upload scoring rubrics
                 </Text>
               </View>
-            )}
-
-            {scoringImage && isJoined && (
-              <Pressable
-                onPress={handlePickScoring}
-                style={({ pressed }) => [
-                  styles.scheduleReplaceRow,
-                  { opacity: pressed ? 0.6 : 1 },
-                ]}
-              >
-                <Feather name="refresh-cw" size={12} color={colors.mutedForeground} />
-                <Text style={[styles.scheduleReplaceText, { color: colors.mutedForeground }]}>
-                  Replace document
-                </Text>
-              </Pressable>
             )}
           </View>
         )}
@@ -797,7 +787,7 @@ export default function CompetitionScreen() {
             </View>
 
             <Text style={[styles.previewSub, { color: colors.mutedForeground }]}>
-              This will be shared with all members of{" "}
+              This will be added to the schedule gallery for{" "}
               <Text style={{ color: colors.lavender }}>{competition?.name}</Text>
             </Text>
 
@@ -848,7 +838,7 @@ export default function CompetitionScreen() {
                   <Feather name="upload-cloud" size={16} color={colors.foreground} />
                 )}
                 <Text style={[styles.previewPublishBtnText, { color: colors.foreground }]}>
-                  {publishingSchedule ? "Publishing…" : "Publish to Competition"}
+                  {publishingSchedule ? "Publishing…" : "Add to Gallery"}
                 </Text>
               </Pressable>
             </View>
@@ -876,7 +866,7 @@ export default function CompetitionScreen() {
             </View>
 
             <Text style={[styles.previewSub, { color: colors.mutedForeground }]}>
-              This will be shared with all members of{" "}
+              This will be added to the scoring gallery for{" "}
               <Text style={{ color: colors.lavender }}>{competition?.name}</Text>
             </Text>
 
@@ -925,7 +915,7 @@ export default function CompetitionScreen() {
                   <Feather name="upload-cloud" size={16} color={colors.foreground} />
                 )}
                 <Text style={[styles.previewPublishBtnText, { color: colors.foreground }]}>
-                  {publishingScoring ? "Publishing…" : "Publish to Competition"}
+                  {publishingScoring ? "Publishing…" : "Add to Gallery"}
                 </Text>
               </Pressable>
             </View>
@@ -1348,6 +1338,39 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 140,
     borderRadius: 10,
+  },
+  // Multi-upload thumbnail strip
+  countBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginRight: 2,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+  },
+  thumbStripWrap: {
+    marginHorizontal: -4,
+  },
+  thumbStrip: {
+    paddingHorizontal: 4,
+    gap: 8,
+    paddingVertical: 4,
+  },
+  scheduleThumbSmall: {
+    width: 110,
+    height: 140,
+    borderRadius: 10,
+  },
+  thumbAddBtn: {
+    width: 110,
+    height: 140,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
   },
   scheduleUploadArea: {
     borderWidth: 1,

@@ -1,28 +1,46 @@
 import { Router, type IRouter } from "express";
 
+interface UploadedImage {
+  id: string;
+  image: string;
+  uploadedAt: string;
+  uploadedBy?: string;
+}
+
 const router: IRouter = Router();
 
-// In-memory store: competitionId -> base64 image data URI
-const scheduleStore = new Map<string, string>();
+const scheduleStore = new Map<string, UploadedImage[]>();
 
-// GET /api/schedule/:competitionId — fetch schedule image
 router.get("/schedule/:competitionId", (req, res) => {
   const { competitionId } = req.params;
-  const image = scheduleStore.get(competitionId) ?? null;
-  res.json({ image });
+  const images = scheduleStore.get(competitionId) ?? [];
+  res.json({ images });
 });
 
-// POST /api/schedule/:competitionId — upload schedule image
 router.post("/schedule/:competitionId", (req, res) => {
   const { competitionId } = req.params;
-  const { image } = req.body as { image: string };
+  const { image, uploadedBy } = req.body as { image: string; uploadedBy?: string };
 
   if (typeof image !== "string" || !image.startsWith("data:image")) {
     res.status(400).json({ error: "Invalid image data" });
     return;
   }
 
-  scheduleStore.set(competitionId, image);
+  const entry: UploadedImage = {
+    id: Date.now().toString(36) + Math.random().toString(36).substr(2, 6),
+    image,
+    uploadedAt: new Date().toISOString(),
+    uploadedBy,
+  };
+  const existing = scheduleStore.get(competitionId) ?? [];
+  scheduleStore.set(competitionId, [...existing, entry]);
+  res.json({ ok: true, id: entry.id });
+});
+
+router.delete("/schedule/:competitionId/:imageId", (req, res) => {
+  const { competitionId, imageId } = req.params;
+  const existing = scheduleStore.get(competitionId) ?? [];
+  scheduleStore.set(competitionId, existing.filter((e) => e.id !== imageId));
   res.json({ ok: true });
 });
 
