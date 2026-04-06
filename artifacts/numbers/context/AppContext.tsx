@@ -51,9 +51,11 @@ interface AppContextValue {
   removeDancer: (id: string) => void;
   updateDancerNumbers: (id: string, numbers: number[]) => void;
   updateDancer: (id: string, name: string, numbers: number[]) => void;
+  joinedCompetitionIds: string[];
   setCompetition: (comp: Competition) => void;
   createCompetition: (name: string, venue: string, location: string, startDate: string, endDate: string) => void;
   joinCompetition: (id: string) => void;
+  switchCompetition: (id: string) => void;
   signIn: (name: string) => void;
   signOut: () => void;
   setProfileImage: (uri: string | null) => void;
@@ -186,6 +188,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [profileImage, setProfileImageState] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [scheduleImage, setScheduleImage] = useState<string | null>(null);
+  // Track which competition IDs the user has joined (persisted locally)
+  const [joinedCompetitionIds, setJoinedCompetitionIds] = useState<string[]>(["c1"]);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const competitionRef = useRef<Competition | null>(competition);
@@ -214,6 +218,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setIsSignedIn(true);
           setUserName(user.name);
           if (user.profileImage) setProfileImageState(user.profileImage);
+        }
+
+        const joinedJson = await AsyncStorage.getItem("joinedCompetitions");
+        if (joinedJson) {
+          const ids: string[] = JSON.parse(joinedJson);
+          // Always include c1 as default
+          setJoinedCompetitionIds(Array.from(new Set(["c1", ...ids])));
         }
       } catch {}
     };
@@ -441,6 +452,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem("activeCompetition", JSON.stringify(comp)).catch(() => {});
   }, []);
 
+  const addToJoined = useCallback((id: string) => {
+    setJoinedCompetitionIds((prev) => {
+      if (prev.includes(id)) return prev;
+      const updated = [...prev, id];
+      AsyncStorage.setItem("joinedCompetitions", JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
+
   const joinCompetition = useCallback((id: string) => {
     setAllCompetitions((prev) => {
       const updated = prev.map((c) =>
@@ -455,12 +475,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ).catch(() => {});
       return updated;
     });
+    addToJoined(id);
     // Fetch current live state for this competition immediately
     fetchStage(id).then((data) => {
       if (data) {
         setCurrentNumber(data.currentNumber);
         setReporterCount(data.reporterCount);
         if (data.lastReportedAt) setLastReportedAt(new Date(data.lastReportedAt));
+      }
+    });
+  }, [addToJoined]);
+
+  const switchCompetition = useCallback((id: string) => {
+    setAllCompetitions((prev) => {
+      const target = prev.find((c) => c.id === id);
+      if (!target) return prev;
+      setCompetitionState(target);
+      AsyncStorage.setItem("activeCompetition", JSON.stringify(target)).catch(() => {});
+      return prev;
+    });
+    // Immediately fetch live state for this competition
+    fetchStage(id).then((data) => {
+      if (data) {
+        setIsLive(true);
+        setCurrentNumber(data.currentNumber);
+        setReporterCount(data.reporterCount);
+        if (data.lastReportedAt) setLastReportedAt(new Date(data.lastReportedAt));
+      } else {
+        setIsLive(false);
+        setCurrentNumber(0);
+        setReporterCount(0);
+        setLastReportedAt(null);
       }
     });
   }, []);
@@ -489,10 +534,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.setItem("competitions", JSON.stringify(userCreated)).catch(() => {});
         return updated;
       });
+      addToJoined(newComp.id);
       setCompetitionState(newComp);
       AsyncStorage.setItem("activeCompetition", JSON.stringify(newComp)).catch(() => {});
     },
-    [userName]
+    [userName, addToJoined]
   );
 
   const signIn = useCallback(async (name: string) => {
@@ -541,9 +587,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         removeDancer,
         updateDancerNumbers,
         updateDancer,
+        joinedCompetitionIds,
         setCompetition,
         createCompetition,
         joinCompetition,
+        switchCompetition,
         signIn,
         signOut,
         setProfileImage,

@@ -25,11 +25,15 @@ import { useColors } from "@/hooks/useColors";
 function CompetitionCard({
   comp,
   isActive,
+  isJoined,
   onJoin,
+  onSwitch,
 }: {
   comp: Competition;
   isActive: boolean;
+  isJoined: boolean;
   onJoin: () => void;
+  onSwitch: () => void;
 }) {
   const colors = useColors();
   return (
@@ -49,6 +53,11 @@ function CompetitionCard({
               <Text style={[styles.activeBadgeText, { color: colors.foreground }]}>ACTIVE</Text>
             </View>
           )}
+          {!isActive && isJoined && (
+            <View style={[styles.activeBadge, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
+              <Text style={[styles.activeBadgeText, { color: colors.mutedForeground }]}>JOINED</Text>
+            </View>
+          )}
           <Text style={[styles.compCardName, { color: colors.foreground }]} numberOfLines={1}>
             {comp.name}
           </Text>
@@ -59,8 +68,19 @@ function CompetitionCard({
         {isActive ? (
           <View style={[styles.joinedBtn, { borderColor: colors.violet }]}>
             <Feather name="check" size={13} color={colors.violet} />
-            <Text style={[styles.joinedBtnText, { color: colors.violet }]}>Joined</Text>
+            <Text style={[styles.joinedBtnText, { color: colors.violet }]}>Active</Text>
           </View>
+        ) : isJoined ? (
+          <Pressable
+            onPress={onSwitch}
+            style={({ pressed }) => [
+              styles.switchBtn,
+              { borderColor: colors.violet, opacity: pressed ? 0.75 : 1 },
+            ]}
+          >
+            <Feather name="repeat" size={12} color={colors.violet} />
+            <Text style={[styles.switchBtnText, { color: colors.violet }]}>Switch</Text>
+          </Pressable>
         ) : (
           <Pressable
             onPress={onJoin}
@@ -138,7 +158,7 @@ function FormField({
 export default function CompetitionScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, createCompetition, userName, refreshCompetitions, scheduleImage, uploadSchedule } =
+  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, createCompetition, userName, refreshCompetitions, scheduleImage, uploadSchedule, joinedCompetitionIds } =
     useApp();
   const router = useRouter();
 
@@ -206,6 +226,11 @@ export default function CompetitionScreen() {
   const handleJoin = (comp: Competition) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     joinCompetition(comp.id);
+  };
+
+  const handleSwitch = (comp: Competition) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    switchCompetition(comp.id);
   };
 
   const handlePickSchedule = async () => {
@@ -408,7 +433,9 @@ export default function CompetitionScreen() {
               key={comp.id}
               comp={comp}
               isActive={competition?.id === comp.id}
+              isJoined={joinedCompetitionIds.includes(comp.id)}
               onJoin={() => handleJoin(comp)}
+              onSwitch={() => handleSwitch(comp)}
             />
           ))
         )}
@@ -720,6 +747,19 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 10,
     borderWidth: 1,
+  },
+  switchBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  switchBtnText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
   },
   joinedBtnText: {
     fontSize: 13,
