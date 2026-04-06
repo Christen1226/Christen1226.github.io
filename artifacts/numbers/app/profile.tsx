@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import React from "react";
+import React, { useState } from "react";
 import {
   Alert,
   Image,
@@ -12,6 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,8 +23,9 @@ import { useColors } from "@/hooks/useColors";
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { userName, userInitials, profileImage, signOut, setProfileImage } = useApp();
+  const { isSignedIn, userName, userInitials, profileImage, signIn, signOut, setProfileImage } = useApp();
   const router = useRouter();
+  const [nameInput, setNameInput] = useState("");
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
@@ -72,16 +74,23 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleSignIn = () => {
+    if (!nameInput.trim()) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    signIn(nameInput.trim());
+    setNameInput("");
+  };
+
   const handleSignOut = () => {
     Alert.alert("Sign Out", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Sign Out",
         style: "destructive",
-        onPress: async () => {
+        onPress: () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          await signOut();
-          router.replace("/(auth)/sign-in");
+          signOut();
+          router.back();
         },
       },
     ]);
@@ -110,50 +119,127 @@ export default function ProfileScreen() {
           <View style={{ width: 34 }} />
         </View>
 
-        <View style={styles.profileSection}>
-          <View style={styles.avatarWrapper}>
-            <Pressable onPress={handlePickImage} style={styles.avatarPressable}>
-              {profileImage ? (
-                <Image
-                  source={{ uri: profileImage }}
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <View style={[styles.avatarLarge, { backgroundColor: colors.violet }]}>
-                  <Text style={[styles.avatarLargeText, { color: colors.foreground }]}>
-                    {userInitials}
-                  </Text>
+        {isSignedIn ? (
+          <View style={styles.profileSection}>
+            {/* Avatar with photo picker */}
+            <View style={styles.avatarWrapper}>
+              <Pressable onPress={handlePickImage} style={styles.avatarPressable}>
+                {profileImage ? (
+                  <Image
+                    source={{ uri: profileImage }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <View style={[styles.avatarLarge, { backgroundColor: colors.violet }]}>
+                    <Text style={[styles.avatarLargeText, { color: colors.foreground }]}>
+                      {userInitials}
+                    </Text>
+                  </View>
+                )}
+                <View style={[styles.cameraOverlay, { backgroundColor: colors.background }]}>
+                  <Feather name="camera" size={13} color={colors.lavender} />
                 </View>
-              )}
-              <View style={[styles.cameraOverlay, { backgroundColor: colors.background }]}>
-                <Feather name="camera" size={13} color={colors.lavender} />
-              </View>
-            </Pressable>
-
-            {profileImage && (
-              <Pressable onPress={handleRemovePhoto} style={styles.removePhotoBtn} hitSlop={8}>
-                <Feather name="x" size={12} color={colors.mutedForeground} />
               </Pressable>
-            )}
+
+              {profileImage && (
+                <Pressable onPress={handleRemovePhoto} style={styles.removePhotoBtn} hitSlop={8}>
+                  <Feather name="x" size={12} color={colors.mutedForeground} />
+                </Pressable>
+              )}
+            </View>
+
+            <Text style={[styles.changePhotoHint, { color: colors.mutedForeground }]}>
+              Tap photo to change
+            </Text>
+
+            <Text style={[styles.name, { color: colors.foreground }]}>{userName}</Text>
+            <Text style={[styles.subLabel, { color: colors.mutedForeground }]}>
+              Reporting as {userName}
+            </Text>
+
+            <Pressable
+              style={[styles.signOutBtn, { borderColor: colors.red }]}
+              onPress={handleSignOut}
+            >
+              <Feather name="log-out" size={16} color={colors.red} />
+              <Text style={[styles.signOutText, { color: colors.red }]}>Sign Out</Text>
+            </Pressable>
           </View>
+        ) : (
+          <View style={styles.signInSection}>
+            {/* Avatar photo picker — available before signing in too */}
+            <View style={styles.avatarWrapper}>
+              <Pressable onPress={handlePickImage} style={styles.avatarPressable}>
+                {profileImage ? (
+                  <Image
+                    source={{ uri: profileImage }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <View style={[styles.avatarLarge, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}>
+                    <Feather name="camera" size={28} color={colors.mutedForeground} />
+                  </View>
+                )}
+                <View style={[styles.cameraOverlay, { backgroundColor: colors.background }]}>
+                  <Feather name="camera" size={13} color={colors.lavender} />
+                </View>
+              </Pressable>
+            </View>
 
-          <Text style={[styles.changePhotoHint, { color: colors.mutedForeground }]}>
-            Tap photo to change
-          </Text>
+            <Text style={[styles.addPhotoLabel, { color: colors.mutedForeground }]}>
+              Add a photo (optional)
+            </Text>
 
-          <Text style={[styles.name, { color: colors.foreground }]}>{userName}</Text>
-          <Text style={[styles.subLabel, { color: colors.mutedForeground }]}>
-            Reporting as {userName}
-          </Text>
+            <Text style={[styles.name, { color: colors.foreground }]}>Set Your Name</Text>
+            <Text style={[styles.subLabel, { color: colors.mutedForeground }]}>
+              Your name appears on community reports.{"\n"}We suggest first name + last initial.
+            </Text>
 
-          <Pressable
-            style={[styles.signOutBtn, { borderColor: colors.red }]}
-            onPress={handleSignOut}
-          >
-            <Feather name="log-out" size={16} color={colors.red} />
-            <Text style={[styles.signOutText, { color: colors.red }]}>Sign Out</Text>
-          </Pressable>
-        </View>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={[
+                  styles.nameInput,
+                  {
+                    backgroundColor: colors.card,
+                    color: colors.foreground,
+                    borderColor: colors.border,
+                  },
+                ]}
+                placeholder="e.g. Sarah M."
+                placeholderTextColor={colors.mutedForeground}
+                value={nameInput}
+                onChangeText={setNameInput}
+                returnKeyType="done"
+                onSubmitEditing={handleSignIn}
+                autoFocus
+                autoCapitalize="words"
+              />
+              <View style={[styles.formatHintRow, { borderColor: colors.border }]}>
+                <Feather name="info" size={11} color={colors.violet} />
+                <Text style={[styles.formatHint, { color: colors.mutedForeground }]}>
+                  First name + last initial (e.g. "Sarah M.") keeps it friendly and private
+                </Text>
+              </View>
+            </View>
+
+            <Pressable
+              style={[
+                styles.signInBtn,
+                { backgroundColor: nameInput.trim() ? colors.violet : colors.surface },
+              ]}
+              onPress={handleSignIn}
+            >
+              <Text
+                style={[
+                  styles.signInBtnText,
+                  { color: nameInput.trim() ? colors.foreground : colors.mutedForeground },
+                ]}
+              >
+                Continue
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -182,6 +268,11 @@ const styles = StyleSheet.create({
   profileSection: {
     alignItems: "center",
     gap: 8,
+    paddingTop: 20,
+  },
+  signInSection: {
+    alignItems: "center",
+    gap: 10,
     paddingTop: 20,
   },
   avatarWrapper: {
@@ -236,6 +327,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_400Regular",
   },
+  addPhotoLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
   name: {
     fontSize: 22,
     fontFamily: "Inter_700Bold",
@@ -260,6 +355,51 @@ const styles = StyleSheet.create({
   },
   signOutText: {
     fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  inputWrapper: {
+    width: "100%",
+    gap: 0,
+  },
+  nameInput: {
+    width: "100%",
+    height: 50,
+    borderRadius: 14,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    fontFamily: "Inter_400Regular",
+  },
+  formatHintRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+    backgroundColor: "rgba(155,111,232,0.06)",
+  },
+  formatHint: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 16,
+    flex: 1,
+  },
+  signInBtn: {
+    width: "100%",
+    height: 52,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  signInBtnText: {
+    fontSize: 16,
     fontFamily: "Inter_600SemiBold",
   },
 });
