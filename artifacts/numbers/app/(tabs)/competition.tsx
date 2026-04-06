@@ -30,6 +30,7 @@ function CompetitionCard({
   onJoin,
   onSwitch,
   onEdit,
+  onLeave,
 }: {
   comp: Competition;
   isActive: boolean;
@@ -37,6 +38,7 @@ function CompetitionCard({
   onJoin: () => void;
   onSwitch: () => void;
   onEdit?: () => void;
+  onLeave?: () => void;
 }) {
   const colors = useColors();
   return (
@@ -127,6 +129,19 @@ function CompetitionCard({
             </Pressable>
           </>
         )}
+        {isJoined && onLeave && (
+          <>
+            <View style={styles.metaDot} />
+            <Pressable
+              onPress={onLeave}
+              style={({ pressed }) => [styles.editDatesBtn, { opacity: pressed ? 0.6 : 1 }]}
+              hitSlop={8}
+            >
+              <Feather name="log-out" size={11} color="#ef4444" />
+              <Text style={[styles.editDatesBtnText, { color: "#ef4444" }]}>Leave</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );
@@ -174,7 +189,7 @@ function FormField({
 export default function CompetitionScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, createCompetition, updateCompetitionDates, userName, refreshCompetitions, scheduleImage, uploadSchedule, scoringImage, uploadScoring, joinedCompetitionIds } =
+  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, leaveCompetition, createCompetition, updateCompetitionDates, userName, refreshCompetitions, scheduleImage, uploadSchedule, scoringImage, uploadScoring, joinedCompetitionIds } =
     useApp();
   const router = useRouter();
 
@@ -221,6 +236,9 @@ export default function CompetitionScreen() {
   const [editingComp, setEditingComp] = useState<Competition | null>(null);
   const [editStartDate, setEditStartDate] = useState("");
   const [editEndDate, setEditEndDate] = useState("");
+
+  // Leave competition confirmation
+  const [leavingComp, setLeavingComp] = useState<Competition | null>(null);
 
   const openEditDates = useCallback((comp: Competition) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -609,6 +627,10 @@ export default function CompetitionScreen() {
               onJoin={() => handleJoin(comp)}
               onSwitch={() => handleSwitch(comp)}
               onEdit={() => openEditDates(comp)}
+              onLeave={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setLeavingComp(comp);
+              }}
             />
           ))
         )}
@@ -986,6 +1008,54 @@ export default function CompetitionScreen() {
             </Pressable>
           </Pressable>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Leave Competition Confirmation Modal */}
+      <Modal visible={!!leavingComp} animationType="slide" transparent statusBarTranslucent>
+        <Pressable style={styles.modalOverlay} onPress={() => setLeavingComp(null)}>
+          <Pressable style={[styles.leaveSheet, { backgroundColor: colors.background }]}>
+            {/* Warning icon */}
+            <View style={[styles.leaveIconWrap, { backgroundColor: "#ef444420" }]}>
+              <Feather name="log-out" size={22} color="#ef4444" />
+            </View>
+            <Text style={[styles.leaveTitle, { color: colors.foreground }]}>Leave Competition?</Text>
+            <Text style={[styles.leaveSub, { color: colors.mutedForeground }]}>
+              You'll be removed from{" "}
+              <Text style={{ color: colors.lavender, fontFamily: "Inter_600SemiBold" }}>
+                {leavingComp?.name}
+              </Text>
+              {leavingComp && competition?.id === leavingComp.id
+                ? " and switched to another competition."
+                : ". You can rejoin at any time."}
+            </Text>
+            <View style={styles.leaveBtns}>
+              <Pressable
+                onPress={() => setLeavingComp(null)}
+                style={({ pressed }) => [
+                  styles.cancelBtn,
+                  { borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (!leavingComp) return;
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                  leaveCompetition(leavingComp.id);
+                  setLeavingComp(null);
+                }}
+                style={({ pressed }) => [
+                  styles.leaveConfirmBtn,
+                  { opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <Feather name="log-out" size={14} color="#fff" />
+                <Text style={[styles.leaveConfirmText, { color: "#fff" }]}>Leave</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* Success toast */}
@@ -1545,6 +1615,55 @@ const styles = StyleSheet.create({
   editDatesBtns: {
     flexDirection: "row",
     gap: 10,
+  },
+  // Leave confirmation modal
+  leaveSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 36,
+    alignItems: "center",
+    gap: 12,
+  },
+  leaveIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  leaveTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
+  leaveSub: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 19,
+    maxWidth: 280,
+  },
+  leaveBtns: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 8,
+    width: "100%",
+  },
+  leaveConfirmBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#ef4444",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  leaveConfirmText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
   },
   toast: {
     position: "absolute",

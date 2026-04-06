@@ -59,6 +59,7 @@ interface AppContextValue {
   updateCompetitionDates: (id: string, startDate: string, endDate: string) => void;
   joinCompetition: (id: string) => void;
   switchCompetition: (id: string) => void;
+  leaveCompetition: (id: string) => void;
   signIn: (name: string) => void;
   signOut: () => void;
   setProfileImage: (uri: string | null) => void;
@@ -136,6 +137,14 @@ const MOCK_COMPETITIONS: Competition[] = [
   },
 ];
 
+function isExpiredComp(comp: Competition): boolean {
+  if (!comp.endDate) return false;
+  const end = new Date(comp.endDate);
+  if (isNaN(end.getTime())) return false;
+  // Grace period: 5 days after end date
+  return new Date() > new Date(end.getTime() + 5 * 24 * 60 * 60 * 1000);
+}
+
 function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
 }
@@ -204,16 +213,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const load = async () => {
       try {
         const compsJson = await AsyncStorage.getItem("competitions");
+        let merged: Competition[] = MOCK_COMPETITIONS;
         if (compsJson) {
           const saved: Competition[] = JSON.parse(compsJson);
           const userCreated = saved.filter((s) => !MOCK_COMPETITIONS.find((m) => m.id === s.id));
-          setAllCompetitions([...MOCK_COMPETITIONS, ...userCreated]);
+          merged = [...MOCK_COMPETITIONS, ...userCreated];
         }
+        // Remove competitions expired more than 5 days ago
+        const live = merged.filter((c) => !isExpiredComp(c));
+        setAllCompetitions(live);
 
         const activeCompJson = await AsyncStorage.getItem("activeCompetition");
         if (activeCompJson) {
           const active: Competition = JSON.parse(activeCompJson);
-          setCompetitionState(active);
+          // Don't restore an expired active competition
+          if (!isExpiredComp(active)) {
+            setCompetitionState(active);
+          } else {
+            setCompetitionState(live[0] ?? null);
+          }
         }
 
         const userJson = await AsyncStorage.getItem("user");
@@ -227,8 +245,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const joinedJson = await AsyncStorage.getItem("joinedCompetitions");
         if (joinedJson) {
           const ids: string[] = JSON.parse(joinedJson);
-          // Always include c1 as default
-          setJoinedCompetitionIds(Array.from(new Set(["c1", ...ids])));
+          setJoinedCompetitionIds(ids);
         }
       } catch {}
     };
@@ -434,13 +451,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshCompetitions = useCallback(async () => {
     try {
       const compsJson = await AsyncStorage.getItem("competitions");
+      let merged: Competition[] = MOCK_COMPETITIONS;
       if (compsJson) {
         const saved: Competition[] = JSON.parse(compsJson);
         const userCreated = saved.filter((s) => !MOCK_COMPETITIONS.find((m) => m.id === s.id));
-        setAllCompetitions([...MOCK_COMPETITIONS, ...userCreated]);
-      } else {
-        setAllCompetitions(MOCK_COMPETITIONS);
+        merged = [...MOCK_COMPETITIONS, ...userCreated];
       }
+      const live = merged.filter((c) => !isExpiredComp(c));
+      setAllCompetitions(live);
+      // If the active competition has since expired, switch to another
+      setCompetitionState((cur) => {
+        if (cur && isExpiredComp(cur)) {
+          const fallback = live[0] ?? null;
+          if (fallback) AsyncStorage.setItem("activeCompetition", JSON.stringify(fallback)).catch(() => {});
+          else AsyncStorage.removeItem("activeCompetition").catch(() => {});
+          return fallback;
+        }
+        return cur;
+      });
     } catch {}
   }, []);
 
@@ -543,6 +571,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setReporterCount(0);
         setLastReportedAt(null);
       }
+    });
+  }, []);
+
+  const leaveCompetition = useCallback((id: string) => {
+    setJoinedCompetitionIds((prev) => {
+      const updated = prev.filter((jid) => jid !== id);
+      AsyncStorage.setItem("joinedCompetitions", JSON.stringify(updated)).catch(() => {});
+      // If leaving the active competition, switch to the next joined one
+      if (competitionRef.current?.id === id) {
+        setAllCompetitions((all) => {
+          const next = all.find((c) => updated.includes(c.id)) ?? null;
+          setCompetitionState(next);
+          if (next) AsyncStorage.setItem("activeCompetition", JSON.stringify(next)).catch(() => {});
+          else AsyncStorage.removeItem("activeCompetition").catch(() => {});
+          return all;
+        });
+      }
+      return updated;
     });
   }, []);
 
@@ -650,6 +696,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateCompetitionDates,
         joinCompetition,
         switchCompetition,
+        leaveCompetition,
         signIn,
         signOut,
         setProfileImage,
