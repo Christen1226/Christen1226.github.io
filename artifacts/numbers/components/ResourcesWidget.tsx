@@ -33,7 +33,7 @@ export function ResourcesWidget() {
             styles.resourceBtn,
             { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
           ]}
-          onPress={() => router.push("/competition")}
+          onPress={() => router.push("/scoring")}
         >
           <MaterialCommunityIcons name="clipboard-text-outline" size={20} color={colors.lilac} />
           <Text style={[styles.resourceLabel, { color: colors.foreground }]}>Scoring</Text>

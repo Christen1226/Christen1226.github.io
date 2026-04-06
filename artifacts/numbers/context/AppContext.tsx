@@ -42,6 +42,8 @@ interface AppContextValue {
   isLive: boolean;
   scheduleImage: string | null;
   uploadSchedule: (base64Uri: string) => Promise<void>;
+  scoringImage: string | null;
+  uploadScoring: (base64Uri: string) => Promise<void>;
   refreshStage: () => Promise<void>;
   refreshCompetitions: () => Promise<void>;
   submitCurrentNumber: (num: number) => void;
@@ -189,6 +191,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [profileImage, setProfileImageState] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [scheduleImage, setScheduleImage] = useState<string | null>(null);
+  const [scoringImage, setScoringImage] = useState<string | null>(null);
   // Track which competition IDs the user has joined (persisted locally)
   const [joinedCompetitionIds, setJoinedCompetitionIds] = useState<string[]>(["c1"]);
 
@@ -287,6 +290,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, [competition?.id]);
 
+  // Load scoring docs for active competition (local cache first, then API)
+  useEffect(() => {
+    setScoringImage(null);
+    if (!competition) return;
+    const compId = competition.id;
+    const localKey = `scoring_${compId}`;
+    AsyncStorage.getItem(localKey).then((cached) => {
+      if (cached) setScoringImage(cached);
+    }).catch(() => {});
+    fetch(`${getApiBase()}/api/scoring/${compId}`)
+      .then((r) => r.json())
+      .then((data: { image: string | null }) => {
+        if (data.image) {
+          setScoringImage(data.image);
+          AsyncStorage.setItem(localKey, data.image).catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }, [competition?.id]);
+
   // Polling: start/stop when competition changes
   useEffect(() => {
     if (pollingRef.current) {
@@ -373,6 +396,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(`schedule_${compId}`, base64Uri).catch(() => {});
     try {
       await fetch(`${getApiBase()}/api/schedule/${compId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64Uri }),
+      });
+    } catch {}
+  }, []);
+
+  const uploadScoring = useCallback(async (base64Uri: string) => {
+    const compId = competitionRef.current?.id;
+    if (!compId) return;
+    setScoringImage(base64Uri);
+    AsyncStorage.setItem(`scoring_${compId}`, base64Uri).catch(() => {});
+    try {
+      await fetch(`${getApiBase()}/api/scoring/${compId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: base64Uri }),
@@ -596,6 +633,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isLive,
         scheduleImage,
         uploadSchedule,
+        scoringImage,
+        uploadScoring,
         refreshStage,
         refreshCompetitions,
         submitCurrentNumber,

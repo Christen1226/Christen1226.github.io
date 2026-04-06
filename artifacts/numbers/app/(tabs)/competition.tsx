@@ -173,12 +173,14 @@ function FormField({
 export default function CompetitionScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, createCompetition, updateCompetitionDates, userName, refreshCompetitions, scheduleImage, uploadSchedule, joinedCompetitionIds } =
+  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, createCompetition, updateCompetitionDates, userName, refreshCompetitions, scheduleImage, uploadSchedule, scoringImage, uploadScoring, joinedCompetitionIds } =
     useApp();
   const router = useRouter();
 
   const [pendingSchedule, setPendingSchedule] = useState<string | null>(null);
   const [publishingSchedule, setPublishingSchedule] = useState(false);
+  const [pendingScoring, setPendingScoring] = useState<string | null>(null);
+  const [publishingScoring, setPublishingScoring] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -290,6 +292,30 @@ export default function CompetitionScreen() {
     await uploadSchedule(pendingSchedule);
     setPublishingSchedule(false);
     setPendingSchedule(null);
+  };
+
+  const handlePickScoring = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: true,
+      quality: 0.8,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const mime = asset.mimeType ?? "image/jpeg";
+    setPendingScoring(`data:${mime};base64,${asset.base64}`);
+  };
+
+  const handlePublishScoring = async () => {
+    if (!pendingScoring) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setPublishingScoring(true);
+    await uploadScoring(pendingScoring);
+    setPublishingScoring(false);
+    setPendingScoring(null);
   };
 
   const isJoined = !!competition && joinedCompetitionIds.includes(competition.id);
@@ -433,6 +459,79 @@ export default function CompetitionScreen() {
                 <Feather name="refresh-cw" size={12} color={colors.mutedForeground} />
                 <Text style={[styles.scheduleReplaceText, { color: colors.mutedForeground }]}>
                   Replace schedule
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {/* Scoring section for active competition */}
+        {competition && (
+          <View style={[styles.scheduleSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.scheduleSectionHeader}>
+              <MaterialCommunityIcons name="clipboard-text-outline" size={16} color={colors.lilac} />
+              <Text style={[styles.scheduleSectionTitle, { color: colors.foreground }]}>Scoring</Text>
+              <Pressable
+                onPress={() => router.push("/scoring")}
+                style={({ pressed }) => [styles.scheduleViewBtn, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <Text style={[styles.scheduleViewBtnText, { color: colors.violet }]}>View full</Text>
+                <Feather name="chevron-right" size={13} color={colors.violet} />
+              </Pressable>
+            </View>
+
+            {scoringImage ? (
+              <Pressable onPress={() => router.push("/scoring")}>
+                <Image
+                  source={{ uri: scoringImage }}
+                  style={styles.scheduleThumb}
+                  resizeMode="cover"
+                />
+              </Pressable>
+            ) : isJoined ? (
+              <Pressable
+                onPress={handlePickScoring}
+                style={({ pressed }) => [
+                  styles.scheduleUploadArea,
+                  { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Feather name="upload" size={18} color={colors.mutedForeground} />
+                <Text style={[styles.scheduleUploadText, { color: colors.mutedForeground }]}>
+                  Upload rubric / docs
+                </Text>
+                <Text style={[styles.scheduleUploadHint, { color: colors.mutedForeground }]}>
+                  Visible to all members
+                </Text>
+              </Pressable>
+            ) : (
+              <View
+                style={[
+                  styles.scheduleUploadArea,
+                  { borderColor: colors.border, opacity: 0.5 },
+                ]}
+              >
+                <Feather name="lock" size={18} color={colors.mutedForeground} />
+                <Text style={[styles.scheduleUploadText, { color: colors.mutedForeground }]}>
+                  Members only
+                </Text>
+                <Text style={[styles.scheduleUploadHint, { color: colors.mutedForeground }]}>
+                  Join to upload scoring rubrics
+                </Text>
+              </View>
+            )}
+
+            {scoringImage && isJoined && (
+              <Pressable
+                onPress={handlePickScoring}
+                style={({ pressed }) => [
+                  styles.scheduleReplaceRow,
+                  { opacity: pressed ? 0.6 : 1 },
+                ]}
+              >
+                <Feather name="refresh-cw" size={12} color={colors.mutedForeground} />
+                <Text style={[styles.scheduleReplaceText, { color: colors.mutedForeground }]}>
+                  Replace document
                 </Text>
               </Pressable>
             )}
@@ -708,6 +807,83 @@ export default function CompetitionScreen() {
                 )}
                 <Text style={[styles.previewPublishBtnText, { color: colors.foreground }]}>
                   {publishingSchedule ? "Publishing…" : "Publish to Competition"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Scoring preview modal */}
+      <Modal visible={!!pendingScoring} animationType="slide" transparent statusBarTranslucent>
+        <View style={[styles.previewOverlay, { backgroundColor: "rgba(0,0,0,0.85)" }]}>
+          <View
+            style={[
+              styles.previewSheet,
+              { backgroundColor: colors.background, paddingBottom: Platform.OS === "web" ? 32 : insets.bottom + 20 },
+            ]}
+          >
+            <View style={styles.previewHeader}>
+              <Text style={[styles.previewTitle, { color: colors.foreground }]}>Review Rubric</Text>
+              <Pressable
+                onPress={() => setPendingScoring(null)}
+                style={({ pressed }) => [styles.previewClose, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <Feather name="x" size={20} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+
+            <Text style={[styles.previewSub, { color: colors.mutedForeground }]}>
+              This will be shared with all members of{" "}
+              <Text style={{ color: colors.lavender }}>{competition?.name}</Text>
+            </Text>
+
+            {pendingScoring && (
+              <ScrollView
+                style={styles.previewScroll}
+                contentContainerStyle={styles.previewScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <Image
+                  source={{ uri: pendingScoring }}
+                  style={styles.previewImage}
+                  resizeMode="contain"
+                />
+              </ScrollView>
+            )}
+
+            <View style={styles.previewBtns}>
+              <Pressable
+                onPress={async () => {
+                  setPendingScoring(null);
+                  await handlePickScoring();
+                }}
+                style={({ pressed }) => [
+                  styles.previewRetakeBtn,
+                  { borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Feather name="refresh-cw" size={15} color={colors.foreground} />
+                <Text style={[styles.previewRetakeBtnText, { color: colors.foreground }]}>
+                  Choose different
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handlePublishScoring}
+                disabled={publishingScoring}
+                style={({ pressed }) => [
+                  styles.previewPublishBtn,
+                  { backgroundColor: colors.violet, opacity: pressed || publishingScoring ? 0.8 : 1 },
+                ]}
+              >
+                {publishingScoring ? (
+                  <ActivityIndicator size="small" color={colors.foreground} />
+                ) : (
+                  <Feather name="upload-cloud" size={16} color={colors.foreground} />
+                )}
+                <Text style={[styles.previewPublishBtnText, { color: colors.foreground }]}>
+                  {publishingScoring ? "Publishing…" : "Publish to Competition"}
                 </Text>
               </Pressable>
             </View>
