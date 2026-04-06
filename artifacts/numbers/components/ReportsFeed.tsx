@@ -114,9 +114,9 @@ export function ReportsFeed() {
   const [message, setMessage] = useState("");
 
   const handleSubmitReport = () => {
-    if (!message.trim()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    submitReport(selectedType, message.trim());
+    const text = message.trim() || (REPORT_TYPES.find((t) => t.value === selectedType)?.label ?? selectedType);
+    submitReport(selectedType, text);
     setMessage("");
     setModalVisible(false);
   };
@@ -190,7 +190,10 @@ export function ReportsFeed() {
                 ))}
               </View>
 
-              <Text style={[styles.modalLabel, { color: colors.mutedForeground }]}>MESSAGE</Text>
+              <View style={styles.detailsLabelRow}>
+                <Text style={[styles.modalLabel, { color: colors.mutedForeground, marginBottom: 0 }]}>DETAILS</Text>
+                <Text style={[styles.optionalTag, { color: colors.mutedForeground }]}>optional</Text>
+              </View>
               <TextInput
                 style={[
                   styles.textArea,
@@ -200,7 +203,7 @@ export function ReportsFeed() {
                     borderColor: colors.border,
                   },
                 ]}
-                placeholder="What's happening?"
+                placeholder="Add more context… (optional)"
                 placeholderTextColor={colors.mutedForeground}
                 value={message}
                 onChangeText={setMessage}
@@ -339,6 +342,17 @@ const styles = StyleSheet.create({
   typeChipText: {
     fontSize: 12,
     fontFamily: "Inter_500Medium",
+  },
+  detailsLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  optionalTag: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    fontStyle: "italic",
   },
   textArea: {
     borderWidth: 1,
