@@ -15,8 +15,10 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ProfileSetup } from "@/components/ProfileSetup";
 import { SplashOverlay } from "@/components/SplashOverlay";
 import { AppProvider } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,6 +33,24 @@ function RootLayoutNav() {
   );
 }
 
+// Sits inside AppProvider so it can read auth state
+function AppShell() {
+  const { userLoaded, isSignedIn } = useApp();
+  const [splashDone, setSplashDone] = useState(false);
+
+  const needsProfile = splashDone && userLoaded && !isSignedIn;
+
+  return (
+    <View style={styles.root}>
+      <RootLayoutNav />
+      {/* Splash plays first, always */}
+      {!splashDone && <SplashOverlay onDone={() => setSplashDone(true)} />}
+      {/* Profile setup blocks the app for new users, appears after splash */}
+      {needsProfile && <ProfileSetup />}
+    </View>
+  );
+}
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
@@ -39,7 +59,6 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
-  const [splashDone, setSplashDone] = useState(false);
   const appReady = !!(fontsLoaded || fontError);
 
   useEffect(() => {
@@ -55,12 +74,7 @@ export default function RootLayout() {
           <AppProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <KeyboardProvider>
-                <View style={styles.root}>
-                  <RootLayoutNav />
-                  {!splashDone && (
-                    <SplashOverlay onDone={() => setSplashDone(true)} />
-                  )}
-                </View>
+                <AppShell />
               </KeyboardProvider>
             </GestureHandlerRootView>
           </AppProvider>

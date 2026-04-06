@@ -35,6 +35,7 @@ export interface UploadedImage {
 }
 
 interface AppContextValue {
+  userLoaded: boolean;
   currentNumber: number;
   lastReportedAt: Date | null;
   reporterCount: number;
@@ -272,6 +273,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [dancers, setDancers] = useState<Dancer[]>([]);
   const [competition, setCompetitionState] = useState<Competition | null>(MOCK_COMPETITIONS[0]);
   const [allCompetitions, setAllCompetitions] = useState<Competition[]>(MOCK_COMPETITIONS);
+  const [userLoaded, setUserLoaded] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [userName, setUserName] = useState("");
   const [profileImage, setProfileImageState] = useState<string | null>(null);
@@ -335,6 +337,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setJoinedCompetitionIds(ids);
         }
       } catch {}
+      setUserLoaded(true);
     };
     load();
   }, []);
@@ -853,6 +856,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider
       value={{
+        userLoaded,
         currentNumber,
         lastReportedAt,
         reporterCount,
