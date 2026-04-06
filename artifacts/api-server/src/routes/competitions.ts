@@ -1,4 +1,6 @@
 import { Router, type IRouter } from "express";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { join } from "path";
 
 export interface ApiCompetition {
   id: string;
@@ -11,10 +13,35 @@ export interface ApiCompetition {
   memberCount: number;
 }
 
-const router: IRouter = Router();
+const DATA_DIR = join(process.cwd(), ".data");
+const COMPETITIONS_FILE = join(DATA_DIR, "competitions.json");
 
-// In-memory store for user-created competitions (excludes the seeded mock ones)
-const competitionsStore = new Map<string, ApiCompetition>();
+function ensureDataDir() {
+  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function loadStore(): Map<string, ApiCompetition> {
+  try {
+    ensureDataDir();
+    if (!existsSync(COMPETITIONS_FILE)) return new Map();
+    const raw = readFileSync(COMPETITIONS_FILE, "utf-8");
+    const arr: ApiCompetition[] = JSON.parse(raw);
+    return new Map(arr.map((c) => [c.id, c]));
+  } catch {
+    return new Map();
+  }
+}
+
+function saveStore(store: Map<string, ApiCompetition>) {
+  try {
+    ensureDataDir();
+    writeFileSync(COMPETITIONS_FILE, JSON.stringify(Array.from(store.values()), null, 2));
+  } catch {}
+}
+
+const competitionsStore = loadStore();
+
+const router: IRouter = Router();
 
 // GET /api/competitions — returns all user-created competitions
 router.get("/competitions", (_req, res) => {
@@ -29,6 +56,7 @@ router.post("/competitions", (req, res) => {
     return;
   }
   competitionsStore.set(comp.id, comp);
+  saveStore(competitionsStore);
   res.json({ ok: true, competition: comp });
 });
 
@@ -42,6 +70,7 @@ router.patch("/competitions/:id", (req, res) => {
   }
   const updated = { ...existing, ...req.body } as ApiCompetition;
   competitionsStore.set(id, updated);
+  saveStore(competitionsStore);
   res.json({ ok: true, competition: updated });
 });
 
@@ -53,6 +82,7 @@ router.delete("/competitions/:id", (req, res) => {
     return;
   }
   competitionsStore.delete(id);
+  saveStore(competitionsStore);
   res.json({ ok: true });
 });
 

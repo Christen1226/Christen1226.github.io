@@ -139,7 +139,17 @@ const POLL_INTERVAL_MS = 5000;
 function getApiBase(): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   if (domain) return `https://${domain}`;
-  // fallback for web where we can use relative URL
+  // For Expo web: derive the API base from the current hostname.
+  // The Expo dev server runs at *.expo.picard.replit.dev while the API
+  // runs at *.picard.replit.dev — strip the leading "expo." to get the API host.
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    const h = window.location.hostname;
+    if (h.includes(".expo.picard.replit.dev")) {
+      return `https://${h.replace(".expo.picard.replit.dev", ".picard.replit.dev")}`;
+    }
+    // Generic fallback: same origin (works when proxy routes /api/* to the API server)
+    return `${window.location.protocol}//${window.location.host}`;
+  }
   return "";
 }
 
