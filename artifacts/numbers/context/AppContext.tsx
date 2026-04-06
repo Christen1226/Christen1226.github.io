@@ -54,6 +54,7 @@ interface AppContextValue {
   joinedCompetitionIds: string[];
   setCompetition: (comp: Competition) => void;
   createCompetition: (name: string, venue: string, location: string, startDate: string, endDate: string) => void;
+  updateCompetitionDates: (id: string, startDate: string, endDate: string) => void;
   joinCompetition: (id: string) => void;
   switchCompetition: (id: string) => void;
   signIn: (name: string) => void;
@@ -539,6 +540,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [userName, addToJoined]
   );
 
+  const updateCompetitionDates = useCallback(
+    (id: string, startDate: string, endDate: string) => {
+      setAllCompetitions((prev) => {
+        const updated = prev.map((c) =>
+          c.id === id ? { ...c, startDate, endDate } : c
+        );
+        const userCreated = updated.filter((c) => !MOCK_COMPETITIONS.find((m) => m.id === c.id));
+        AsyncStorage.setItem("competitions", JSON.stringify(userCreated)).catch(() => {});
+        const target = updated.find((c) => c.id === id);
+        if (target && competitionRef.current?.id === id) {
+          setCompetitionState(target);
+          AsyncStorage.setItem("activeCompetition", JSON.stringify(target)).catch(() => {});
+        }
+        return updated;
+      });
+    },
+    []
+  );
+
   const signIn = useCallback(async (name: string) => {
     setUserName(name);
     setIsSignedIn(true);
@@ -588,6 +608,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         joinedCompetitionIds,
         setCompetition,
         createCompetition,
+        updateCompetitionDates,
         joinCompetition,
         switchCompetition,
         signIn,

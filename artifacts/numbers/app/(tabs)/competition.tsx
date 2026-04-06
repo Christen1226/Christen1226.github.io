@@ -28,12 +28,14 @@ function CompetitionCard({
   isJoined,
   onJoin,
   onSwitch,
+  onEdit,
 }: {
   comp: Competition;
   isActive: boolean;
   isJoined: boolean;
   onJoin: () => void;
   onSwitch: () => void;
+  onEdit?: () => void;
 }) {
   const colors = useColors();
   return (
@@ -111,6 +113,19 @@ function CompetitionCard({
           <Feather name="users" size={11} color={colors.mutedForeground} />
           <Text style={[styles.metaText, { color: colors.mutedForeground }]}>{comp.memberCount}</Text>
         </View>
+        {isJoined && onEdit && (
+          <>
+            <View style={styles.metaDot} />
+            <Pressable
+              onPress={onEdit}
+              style={({ pressed }) => [styles.editDatesBtn, { opacity: pressed ? 0.6 : 1 }]}
+              hitSlop={8}
+            >
+              <Feather name="edit-2" size={11} color={colors.violet} />
+              <Text style={[styles.editDatesBtnText, { color: colors.violet }]}>Edit dates</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );
@@ -158,7 +173,7 @@ function FormField({
 export default function CompetitionScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, createCompetition, userName, refreshCompetitions, scheduleImage, uploadSchedule, joinedCompetitionIds } =
+  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, createCompetition, updateCompetitionDates, userName, refreshCompetitions, scheduleImage, uploadSchedule, joinedCompetitionIds } =
     useApp();
   const router = useRouter();
 
@@ -181,6 +196,25 @@ export default function CompetitionScreen() {
   const [newLocation, setNewLocation] = useState("");
   const [newStartDate, setNewStartDate] = useState("");
   const [newEndDate, setNewEndDate] = useState("");
+
+  // Edit dates modal
+  const [editingComp, setEditingComp] = useState<Competition | null>(null);
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editEndDate, setEditEndDate] = useState("");
+
+  const openEditDates = useCallback((comp: Competition) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setEditingComp(comp);
+    setEditStartDate(comp.startDate);
+    setEditEndDate(comp.endDate);
+  }, []);
+
+  const handleSaveDates = useCallback(() => {
+    if (!editingComp || !editStartDate.trim()) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    updateCompetitionDates(editingComp.id, editStartDate.trim(), editEndDate.trim() || editStartDate.trim());
+    setEditingComp(null);
+  }, [editingComp, editStartDate, editEndDate, updateCompetitionDates]);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
@@ -455,6 +489,7 @@ export default function CompetitionScreen() {
               isJoined={joinedCompetitionIds.includes(comp.id)}
               onJoin={() => handleJoin(comp)}
               onSwitch={() => handleSwitch(comp)}
+              onEdit={() => openEditDates(comp)}
             />
           ))
         )}
@@ -678,6 +713,83 @@ export default function CompetitionScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Edit Dates Modal */}
+      <Modal visible={!!editingComp} animationType="slide" transparent statusBarTranslucent>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setEditingComp(null)}>
+            <Pressable style={[styles.editDatesSheet, { backgroundColor: colors.background }]}>
+              {/* Header */}
+              <View style={styles.editDatesHeader}>
+                <View>
+                  <Text style={[styles.editDatesTitle, { color: colors.foreground }]}>Edit Dates</Text>
+                  {editingComp && (
+                    <Text style={[styles.editDatesSubtitle, { color: colors.mutedForeground }]} numberOfLines={1}>
+                      {editingComp.name}
+                    </Text>
+                  )}
+                </View>
+                <Pressable
+                  onPress={() => setEditingComp(null)}
+                  style={({ pressed }) => [styles.previewClose, { opacity: pressed ? 0.6 : 1 }]}
+                >
+                  <Feather name="x" size={20} color={colors.mutedForeground} />
+                </Pressable>
+              </View>
+
+              <View style={styles.editDatesFields}>
+                <FormField
+                  label="Start Date"
+                  placeholder="e.g. Apr 6, 2026"
+                  value={editStartDate}
+                  onChangeText={setEditStartDate}
+                  hint="Day the competition begins"
+                />
+                <FormField
+                  label="End Date"
+                  placeholder="e.g. Apr 7, 2026"
+                  value={editEndDate}
+                  onChangeText={setEditEndDate}
+                  hint="Leave blank if same as start date"
+                />
+              </View>
+
+              <View style={styles.editDatesBtns}>
+                <Pressable
+                  onPress={() => setEditingComp(null)}
+                  style={({ pressed }) => [
+                    styles.cancelBtn,
+                    { borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
+                  ]}
+                >
+                  <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleSaveDates}
+                  disabled={!editStartDate.trim()}
+                  style={({ pressed }) => [
+                    styles.submitBtn,
+                    {
+                      flexDirection: "row",
+                      gap: 6,
+                      backgroundColor: editStartDate.trim() ? colors.violet : colors.surface,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  <Feather name="check" size={15} color={editStartDate.trim() ? colors.foreground : colors.mutedForeground} />
+                  <Text style={[styles.submitText, { color: editStartDate.trim() ? colors.foreground : colors.mutedForeground }]}>
+                    Save Dates
+                  </Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -1174,5 +1286,46 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.3,
+  },
+  // Edit dates inline button (inside CompetitionCard)
+  editDatesBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  editDatesBtnText: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+  },
+  // Edit dates modal
+  editDatesSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 32,
+  },
+  editDatesHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  editDatesTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 2,
+  },
+  editDatesSubtitle: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    letterSpacing: 0.3,
+  },
+  editDatesFields: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  editDatesBtns: {
+    flexDirection: "row",
+    gap: 10,
   },
 });
