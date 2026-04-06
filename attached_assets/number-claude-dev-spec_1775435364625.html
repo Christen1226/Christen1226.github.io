@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NUMBER — Developer Design Spec</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg:        #0E0A16;
+    --surface:   #1A1225;
+    --card:      rgba(255,255,255,0.045);
+    --border:    rgba(210,195,246,0.12);
+    --violet:    #9B6FE8;
+    --lavender:  #D2C3F6;
+    --muted:     #8B7BA8;
+    --lilac:     #B48EF0;
+    --soft-white:#F0ECF7;
+    --green:     #5DE88C;
+    --red:       #E85D5D;
+    --yellow:    #E8C45D;
+    --code-bg:   #110D1C;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--lavender);
+    font-family: "DM Sans", sans-serif;
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ── LAYOUT ── */
+  .page { max-width: 960px; margin: 0 auto; padding: 60px 40px 100px; }
+
+  /* ── TOP HEADER ── */
+  .doc-header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 28px; margin-bottom: 52px;
+  }
+  .doc-logo { font-family: "Bebas Neue", sans-serif; font-size: 48px; letter-spacing: 10px; color: var(--lavender); }
+  .doc-meta { text-align: right; font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; line-height: 2; }
+  .doc-meta strong { color: var(--violet); }
+
+  /* ── SECTION TITLES ── */
+  h2 {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 11px; letter-spacing: 4px; text-transform: uppercase;
+    color: var(--violet); margin-bottom: 20px; margin-top: 56px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  h2::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  h2:first-of-type { margin-top: 0; }
+
+  h3 {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 15px; letter-spacing: 3px; color: var(--lavender);
+    margin-bottom: 12px; margin-top: 32px;
+  }
+
+  /* ── CODE BLOCK ── */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid rgba(155,111,232,0.18);
+    border-radius: 12px;
+    padding: 20px 22px;
+    overflow-x: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12.5px;
+    line-height: 1.75;
+    color: #C4AAFF;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  pre .comment { color: #4A3B6A; }
+  pre .key     { color: #9B6FE8; }
+  pre .val     { color: #D2C3F6; }
+  pre .str     { color: #5DE88C; }
+  pre .num     { color: #E8C45D; }
+  pre .tag     { color: #B48EF0; }
+  pre .label   { color: rgba(210,195,246,0.45); font-style: italic; }
+
+  /* ── COLOR SWATCHES ── */
+  .swatch-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
+  .swatch {
+    display: flex; flex-direction: column; gap: 8px; min-width: 130px;
+  }
+  .swatch-dot { width: 100%; height: 48px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); }
+  .swatch-name { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .swatch-hex  { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--lavender); }
+
+  /* ── TABLE ── */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 8px; }
+  th {
+    font-family: "Bebas Neue", sans-serif; font-size: 10px; letter-spacing: 3px;
+    color: var(--muted); text-transform: uppercase; text-align: left;
+    border-bottom: 1px solid var(--border); padding: 0 16px 10px 0;
+  }
+  td { padding: 10px 16px 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; }
+  td:first-child { color: var(--soft-white); font-weight: 500; white-space: nowrap; }
+  td code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px; color: #B48EF0;
+    background: rgba(155,111,232,0.1); border-radius: 5px; padding: 1px 6px;
+  }
+  td .note { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* ── PILL DEMOS ── */
+  .pill-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .pill {
+    border-radius: 20px; padding: 5px 14px;
+    font-size: 10px; letter-spacing: 0.5px; font-weight: 600;
+    font-family: "DM Sans", sans-serif;
+  }
+  .pill-on-stage  { background: rgba(155,111,232,0.22); border: 1px solid rgba(155,111,232,0.5); color: #D2C3F6; }
+  .pill-gap       { background: rgba(180,142,240,0.12); border: 1px solid rgba(180,142,240,0.22); color: #C4AAFF; }
+  .pill-confirmed { background: rgba(93,232,140,0.10); border: 1px solid rgba(93,232,140,0.20); color: #5DE88C; }
+
+  /* ── REPORT ITEM DEMOS ── */
+  .demo-report {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 13px; border-radius: 14px; margin-bottom: 8px;
+    font-family: "DM Sans", sans-serif;
+  }
+  .demo-report.red    { background: rgba(232,93,93,0.08); border: 1px solid rgba(232,93,93,0.18); }
+  .demo-report.yellow { background: rgba(232,196,93,0.07); border: 1px solid rgba(232,196,93,0.18); }
+  .demo-report.purple { background: rgba(155,111,232,0.08); border: 1px solid rgba(155,111,232,0.18); }
+  .demo-report-text { font-size: 12px; font-weight: 500; color: var(--soft-white); }
+  .demo-report-sub  { font-size: 9px; color: var(--muted); margin-top: 2px; }
+
+  /* ── INLINE LABEL ── */
+  .tag-inline {
+    display: inline-block;
+    background: rgba(155,111,232,0.12); border: 1px solid rgba(155,111,232,0.2);
+    border-radius: 6px; padding: 1px 8px;
+    font-family: "JetBrains Mono", monospace; font-size: 11px; color: #B48EF0;
+  }
+  .note-block {
+    background: rgba(155,111,232,0.07); border-left: 3px solid var(--violet);
+    border-radius: 0 8px 8px 0; padding: 12px 16px;
+    font-size: 12px; color: var(--muted); margin: 16px 0;
+  }
+  .note-block strong { color: var(--lavender); }
+
+  /* ── FOOTER ── */
+  .doc-footer {
+    margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .doc-footer-logo { font-family: "Bebas Neue", sans-serif; font-size: 13px; letter-spacing: 5px; color: rgba(210,195,246,0.2); }
+  .doc-footer-tag  { font-size: 11px; color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ══ HEADER ══ -->
+  <div class="doc-header">
+    <div class="doc-logo">NUMBER</div>
+    <div class="doc-meta">
+      Mobile App · Developer Design Spec<br>
+      Screens: <strong>5</strong> &nbsp;·&nbsp; Version: <strong>3 · 2026</strong>
+    </div>
+  </div>
+
+
+  <!-- ══ 1. DESIGN TOKENS ══ -->
+  <h2>01 — Design Tokens</h2>
+
+  <h3>Color Palette</h3>
+  <div class="swatch-grid">
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#0E0A16;"></div>
+      <div class="swatch-name">Background</div>
+      <div class="swatch-hex">#0E0A16</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#1A1225;"></div>
+      <div class="swatch-name">Surface</div>
+      <div class="swatch-hex">#1A1225</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#08050F;"></div>
+      <div class="swatch-name">Phone Shell</div>
+      <div class="swatch-hex">#08050F</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#9B6FE8;"></div>
+      <div class="swatch-name">Violet (Primary)</div>
+      <div class="swatch-hex">#9B6FE8</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#B48EF0;"></div>
+      <div class="swatch-name">Lilac</div>
+      <div class="swatch-hex">#B48EF0</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#D2C3F6;"></div>
+      <div class="swatch-name">Lavender</div>
+      <div class="swatch-hex">#D2C3F6</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#C4AAFF;"></div>
+      <div class="swatch-name">Soft Purple</div>
+      <div class="swatch-hex">#C4AAFF</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#F0ECF7;"></div>
+      <div class="swatch-name">Soft White</div>
+      <div class="swatch-hex">#F0ECF7</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#8B7BA8;"></div>
+      <div class="swatch-name">Muted</div>
+      <div class="swatch-hex">#8B7BA8</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#5DE88C;"></div>
+      <div class="swatch-name">Green (Confirm)</div>
+      <div class="swatch-hex">#5DE88C</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#E85D5D;"></div>
+      <div class="swatch-name">Red (Alert)</div>
+      <div class="swatch-hex">#E85D5D</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#E8C45D;"></div>
+      <div class="swatch-name">Yellow (Warning)</div>
+      <div class="swatch-hex">#E8C45D</div>
+    </div>
+    <div class="swatch">
+      <div class="swatch-dot" style="background:#FF7B7B;"></div>
+      <div class="swatch-name">Red (Timestamp)</div>
+      <div class="swatch-hex">#FF7B7B</div>
+    </div>
+  </div>
+
+  <pre><span class="comment">/* CSS Custom Properties — paste into :root */</span>
+<span class="key">--color-bg</span>:          <span class="str">#0E0A16</span>;
+<span class="key">--color-surface</span>:     <span class="str">#1A1225</span>;
+<span class="key">--color-phone-shell</span>: <span class="str">#08050F</span>;
+<span class="key">--color-violet</span>:      <span class="str">#9B6FE8</span>;
+<span class="key">--color-lilac</span>:       <span class="str">#B48EF0</span>;
+<span class="key">--color-lavender</span>:    <span class="str">#D2C3F6</span>;
+<span class="key">--color-soft-purple</span>: <span class="str">#C4AAFF</span>;
+<span class="key">--color-soft-white</span>:  <span class="str">#F0ECF7</span>;
+<span class="key">--color-muted</span>:       <span class="str">#8B7BA8</span>;
+<span class="key">--color-border</span>:      <span class="str">rgba(210,195,246,0.12)</span>;
+<span class="key">--color-green</span>:       <span class="str">#5DE88C</span>;
+<span class="key">--color-red</span>:         <span class="str">#E85D5D</span>;
+<span class="key">--color-yellow</span>:      <span class="str">#E8C45D</span>;
+<span class="key">--color-red-time</span>:    <span class="str">#FF7B7B</span>;</pre>
+
+
+  <h3>Typography</h3>
+  <table>
+    <tr><th>Token</th><th>Family</th><th>Size</th><th>Weight</th><th>Extras</th></tr>
+    <tr>
+      <td>Display / Logo</td>
+      <td><code>Bebas Neue</code></td>
+      <td><code>28–48px</code></td>
+      <td>400</td>
+      <td>letter-spacing: 8–10px</td>
+    </tr>
+    <tr>
+      <td>Tracker Number</td>
+      <td><code>Bebas Neue</code></td>
+      <td><code>74px</code></td>
+      <td>400</td>
+      <td>letter-spacing: 4px; text-shadow glow</td>
+    </tr>
+    <tr>
+      <td>Section Heading</td>
+      <td><code>Bebas Neue</code></td>
+      <td><code>14px</code></td>
+      <td>400</td>
+      <td>letter-spacing: 2px; color: rgba(210,195,246,0.65)</td>
+    </tr>
+    <tr>
+      <td>Comp Name</td>
+      <td><code>Bebas Neue</code></td>
+      <td><code>20px</code></td>
+      <td>400</td>
+      <td>letter-spacing: 2px</td>
+    </tr>
+    <tr>
+      <td>Number Tag (#64)</td>
+      <td><code>Bebas Neue</code></td>
+      <td><code>16–18px</code></td>
+      <td>400</td>
+      <td>letter-spacing: 1.5–3px</td>
+    </tr>
+    <tr>
+      <td>Body / Labels</td>
+      <td><code>DM Sans</code></td>
+      <td><code>12px</code></td>
+      <td>400–500</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>Caption / Meta</td>
+      <td><code>DM Sans</code></td>
+      <td><code>9–11px</code></td>
+      <td>400</td>
+      <td>letter-spacing: 0.3–2px</td>
+    </tr>
+    <tr>
+      <td>Nav Labels</td>
+      <td><code>DM Sans</code></td>
+      <td><code>8px</code></td>
+      <td>400</td>
+      <td>text-transform: uppercase; letter-spacing: 1px</td>
+    </tr>
+    <tr>
+      <td>Status Bar Time</td>
+      <td><code>DM Sans</code></td>
+      <td><code>15px</code></td>
+      <td>600</td>
+      <td>—</td>
+    </tr>
+  </table>
+
+  <pre><span class="comment">/* Google Fonts import */</span>
+@import url(<span class="str">'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap'</span>);</pre>
+
+
+  <h3>Spacing & Radius</h3>
+  <table>
+    <tr><th>Element</th><th>Value</th></tr>
+    <tr><td>Screen padding (horizontal)</td><td><code>22px</code></td></tr>
+    <tr><td>Status bar height</td><td><code>44px</code></td></tr>
+    <tr><td>Bottom nav height</td><td><code>68px</code></td></tr>
+    <tr><td>Home indicator height</td><td><code>20px</code></td></tr>
+    <tr><td>Section gap</td><td><code>18px</code></td></tr>
+    <tr><td>Card border-radius (large)</td><td><code>22px</code></td></tr>
+    <tr><td>Card border-radius (medium)</td><td><code>18px</code></td></tr>
+    <tr><td>Card border-radius (small)</td><td><code>14px</code></td></tr>
+    <tr><td>Pill border-radius</td><td><code>20px</code></td></tr>
+    <tr><td>Button border-radius</td><td><code>12px</code></td></tr>
+    <tr><td>Avatar size (standard)</td><td><code>26px</code></td></tr>
+    <tr><td>Avatar size (mini)</td><td><code>18px</code></td></tr>
+    <tr><td>Nav FAB size</td><td><code>52px</code></td></tr>
+    <tr><td>Phone frame border-radius</td><td><code>42px</code></td></tr>
+    <tr><td>Canonical screen size</td><td><code>390 × 844px</code></td></tr>
+  </table>
+
+
+  <!-- ══ 2. BACKGROUND & AMBIENT GLOWS ══ -->
+  <h2>02 — Background &amp; Ambient Glows</h2>
+
+  <pre><span class="comment">/* Screen background */</span>
+<span class="key">background</span>: <span class="str">#1A1225</span>;
+
+<span class="comment">/* Glow 1 — top-left violet */</span>
+<span class="key">position</span>: absolute; top: -80px; left: -60px;
+<span class="key">width</span>: 300px; height: 300px;
+<span class="key">background</span>: radial-gradient(circle, <span class="str">rgba(155,111,232,0.22)</span> 0%, transparent 70%);
+
+<span class="comment">/* Glow 2 — mid-right soft violet */</span>
+<span class="key">position</span>: absolute; top: 200px; right: -80px;
+<span class="key">width</span>: 240px; height: 240px;
+<span class="key">background</span>: radial-gradient(circle, <span class="str">rgba(180,142,240,0.12)</span> 0%, transparent 70%);
+
+<span class="comment">/* Glow 3 — lower-left blue-violet */</span>
+<span class="key">position</span>: absolute; bottom: 120px; left: 20px;
+<span class="key">width</span>: 200px; height: 200px;
+<span class="key">background</span>: radial-gradient(circle, <span class="str">rgba(93,93,232,0.10)</span> 0%, transparent 70%);</pre>
+
+  <div class="note-block"><strong>Note:</strong> All glow divs are <code>pointer-events: none; z-index: 0</code> and sit behind scrollable content at <code>z-index: 1</code>.</div>
+
+
+  <!-- ══ 3. LIVE TRACKER CARD ══ -->
+  <h2>03 — Live Tracker Card</h2>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">The hero card showing the current number on stage. Glassmorphic gradient with glowing number display.</p>
+
+  <pre><span class="comment">/* Container */</span>
+border-radius: 22px;
+padding: 18px 20px 16px;
+text-align: center;
+background: linear-gradient(
+  145deg,
+  <span class="str">rgba(155,111,232,0.32)</span>  0%,
+  <span class="str">rgba(54,37,92,0.55)</span>    50%,
+  <span class="str">rgba(30,15,58,0.75)</span>    100%
+);
+backdrop-filter: blur(28px) saturate(200%);
+border: 1px solid <span class="str">rgba(180,142,240,0.28)</span>;
+box-shadow:
+  inset 0 1.5px 0 <span class="str">rgba(255,255,255,0.18)</span>,
+  inset 0 -1px  0 <span class="str">rgba(0,0,0,0.2)</span>,
+  0 12px 48px <span class="str">rgba(155,111,232,0.28)</span>,
+  0 4px  16px <span class="str">rgba(0,0,0,0.3)</span>;
+
+<span class="comment">/* Top shine via ::before */</span>
+::before {
+  content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+  background: linear-gradient(90deg, transparent, <span class="str">rgba(255,255,255,0.35)</span>, transparent);
+}
+
+<span class="comment">/* Label — "Currently On Stage" */</span>
+font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+color: <span class="str">rgba(210,195,246,0.65)</span>;
+
+<span class="comment">/* Big Number — #64 */</span>
+font-family: 'Bebas Neue', sans-serif;
+font-size: 74px; color: <span class="str">#FEFCFF</span>;
+letter-spacing: 4px; line-height: 1;
+text-shadow: 0 4px 28px <span class="str">rgba(180,142,240,0.55)</span>, 0 0 60px <span class="str">rgba(155,111,232,0.25)</span>;
+
+<span class="comment">/* Timestamp text color */</span>
+color: <span class="str">#FF7B7B</span>; font-size: 11px; font-weight: 500;</pre>
+
+
+  <!-- ══ 4. REPORT INPUT ROW ══ -->
+  <h2>04 — Report Input Row (inside Tracker)</h2>
+
+  <pre><span class="comment">/* Row */</span>
+display: flex; gap: 8px; margin-top: 14px;
+
+<span class="comment">/* Number input field */</span>
+flex: 1;
+background: <span class="str">rgba(255,255,255,0.10)</span>;
+backdrop-filter: blur(12px);
+border: 1px solid <span class="str">rgba(255,255,255,0.16)</span>;
+border-radius: 12px; padding: 10px 14px;
+font-family: 'Bebas Neue', sans-serif;
+font-size: 18px; letter-spacing: 3px;
+color: <span class="str">rgba(255,255,255,0.9)</span>;
+text-align: center;
+
+<span class="comment">/* Submit button */</span>
+padding: 10px 18px; border-radius: 12px;
+background: <span class="str">rgba(155,111,232,0.55)</span>;
+border: 1px solid <span class="str">rgba(180,142,240,0.4)</span>;
+box-shadow:
+  inset 0 1px 0 <span class="str">rgba(255,255,255,0.18)</span>,
+  0 4px 14px <span class="str">rgba(155,111,232,0.3)</span>;
+font-size: 11px; font-weight: 600; letter-spacing: 1px;
+text-transform: uppercase; color: white;</pre>
+
+
+  <!-- ══ 5. PILLS / BADGES ══ -->
+  <h2>05 — Status Pills &amp; Badges</h2>
+
+  <div class="pill-row">
+    <span class="pill pill-on-stage">On Stage</span>
+    <span class="pill pill-gap">72 away</span>
+    <span class="pill pill-confirmed">✓ 7 confirmed</span>
+  </div>
+
+  <pre><span class="comment">/* "On Stage" pill — active / now */</span>
+background: <span class="str">rgba(155,111,232,0.22)</span>;
+border: 1px solid <span class="str">rgba(155,111,232,0.50)</span>;
+color: <span class="str">#D2C3F6</span>;
+border-radius: 20px; padding: 5px 14px;
+font-size: 10px; letter-spacing: 0.5px;
+
+<span class="comment">/* "72 away" gap pill */</span>
+background: <span class="str">rgba(180,142,240,0.12)</span>;
+border: 1px solid <span class="str">rgba(180,142,240,0.22)</span>;
+color: <span class="str">#C4AAFF</span>;
+box-shadow: inset 0 1px 0 <span class="str">rgba(255,255,255,0.08)</span>;
+
+<span class="comment">/* "N confirmed" green badge */</span>
+background: <span class="str">rgba(93,232,140,0.10)</span>;
+border: 1px solid <span class="str">rgba(93,232,140,0.20)</span>;
+color: <span class="str">#5DE88C</span>;
+border-radius: 8px; padding: 1px 6px;
+font-size: 8px; font-weight: 500;</pre>
+
+
+  <!-- ══ 6. LIVE REPORT ITEMS ══ -->
+  <h2>06 — Live Report Items</h2>
+
+  <div class="demo-report red">
+    <div>
+      <div class="demo-report-text">Judge Break — 15 min.</div>
+      <div class="demo-report-sub">7 confirmed · 10:21 AM</div>
+    </div>
+  </div>
+  <div class="demo-report yellow">
+    <div>
+      <div class="demo-report-text">Number added out of order</div>
+      <div class="demo-report-sub">2 confirmed · 8:03 AM</div>
+    </div>
+  </div>
+  <div class="demo-report purple">
+    <div>
+      <div class="demo-report-text">Technical delay</div>
+      <div class="demo-report-sub">Christen W. reported · 7:42 AM</div>
+    </div>
+  </div>
+
+  <pre><span class="comment">/* Shared base */</span>
+display: flex; align-items: center; gap: 10px;
+padding: 11px 13px; border-radius: 14px;
+backdrop-filter: blur(16px);
+
+<span class="comment">/* Red variant — e.g. Judge Break */</span>
+background: <span class="str">rgba(232,93,93,0.08)</span>;
+border: 1px solid <span class="str">rgba(232,93,93,0.18)</span>;
+box-shadow: inset 0 1px 0 <span class="str">rgba(255,150,150,0.08)</span>, 0 4px 12px <span class="str">rgba(232,93,93,0.08)</span>;
+
+<span class="comment">/* Yellow variant — e.g. Out of order */</span>
+background: <span class="str">rgba(232,196,93,0.07)</span>;
+border: 1px solid <span class="str">rgba(232,196,93,0.18)</span>;
+box-shadow: inset 0 1px 0 <span class="str">rgba(255,220,120,0.08)</span>, 0 4px 12px <span class="str">rgba(232,196,93,0.06)</span>;
+
+<span class="comment">/* Purple variant — e.g. Technical delay */</span>
+background: <span class="str">rgba(155,111,232,0.08)</span>;
+border: 1px solid <span class="str">rgba(155,111,232,0.18)</span>;
+box-shadow: inset 0 1px 0 <span class="str">rgba(180,142,240,0.10)</span>, 0 4px 12px <span class="str">rgba(155,111,232,0.08)</span>;</pre>
+
+
+  <!-- ══ 7. STACKED AVATARS ══ -->
+  <h2>07 — Stacked Avatar Chips</h2>
+
+  <pre><span class="comment">/* Avatar base */</span>
+width: 26px; height: 26px; border-radius: 50%;
+font-size: 9px; font-weight: 600; color: white;
+display: flex; align-items: center; justify-content: center;
+border: 2px solid <span class="str">rgba(26,18,37,0.70)</span>;
+margin-left: -8px; <span class="comment">/* overlap */</span>
+
+<span class="comment">/* Color variants */</span>
+.av-1  → background: linear-gradient(135deg, <span class="str">#9B6FE8</span>, <span class="str">#6B3FA0</span>)  <span class="comment">/* violet */</span>
+.av-2  → background: linear-gradient(135deg, <span class="str">#E85D8A</span>, <span class="str">#C04070</span>)  <span class="comment">/* pink */</span>
+.av-3  → background: linear-gradient(135deg, <span class="str">#5DB8E8</span>, <span class="str">#3090C0</span>)  <span class="comment">/* blue */</span>
+.av-4  → background: linear-gradient(135deg, <span class="str">#5DE8A0</span>, <span class="str">#30A068</span>)  <span class="comment">/* green */</span>
+.av-more → background: <span class="str">rgba(46,33,69,0.8)</span>; color: <span class="str">#B48EF0</span>     <span class="comment">/* "+3" overflow */</span>
+
+<span class="comment">/* Mini avatars (inside tracker) */</span>
+width: 18px; height: 18px; border-radius: 50%;
+font-size: 7px; font-weight: 600;
+margin-left: -5px;</pre>
+
+
+  <!-- ══ 8. GLASS CARDS (generic) ══ -->
+  <h2>08 — Generic Glass Card</h2>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Used for Schedule Widget, Numbers Card, and Dancer Card.</p>
+
+  <pre><span class="comment">/* Glass surface */</span>
+background: <span class="str">rgba(255,255,255,0.045)</span>;
+backdrop-filter: blur(20px) saturate(150%);
+-webkit-backdrop-filter: blur(20px) saturate(150%);
+border: 1px solid <span class="str">rgba(255,255,255,0.09)</span>;
+border-radius: 18px;
+box-shadow:
+  inset 0 1.5px 0 <span class="str">rgba(255,255,255,0.10)</span>,
+  0 8px 28px <span class="str">rgba(0,0,0,0.22)</span>;
+
+<span class="comment">/* Top shine via ::before */</span>
+::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, <span class="str">rgba(255,255,255,0.15)</span>, transparent);
+}</pre>
+
+
+  <!-- ══ 9. SCHEDULE WIDGET STATES ══ -->
+  <h2>09 — Schedule Widget States</h2>
+
+  <h3>Uploaded State</h3>
+  <pre><span class="comment">/* Document thumbnail */</span>
+width: 44px; height: 56px; border-radius: 8px;
+background: linear-gradient(145deg, <span class="str">#2E2145</span>, <span class="str">#1E0F3A</span>);
+border: 1px solid <span class="str">rgba(155,111,232,0.2)</span>;
+<span class="comment">/* Striped lines effect */</span>
+::after {
+  background: repeating-linear-gradient(
+    180deg,
+    <span class="str">rgba(210,195,246,0.25)</span> 0px, <span class="str">rgba(210,195,246,0.25)</span> 1.5px,
+    transparent 1.5px, transparent 6px
+  );
+}
+
+<span class="comment">/* Open button */</span>
+background: <span class="str">rgba(155,111,232,0.18)</span>;
+border: 1px solid <span class="str">rgba(155,111,232,0.28)</span>;
+border-radius: 10px; padding: 6px 12px;
+font-size: 10px; font-weight: 600; color: <span class="str">#C4AAFF</span>;</pre>
+
+  <h3>Empty / Not Uploaded State</h3>
+  <pre><span class="comment">/* Dashed placeholder icon box */</span>
+width: 44px; height: 44px; border-radius: 12px;
+background: <span class="str">rgba(155,111,232,0.10)</span>;
+border: 1.5px dashed <span class="str">rgba(155,111,232,0.30)</span>;
+
+<span class="comment">/* Upload button */</span>
+background: <span class="str">rgba(155,111,232,0.15)</span>;
+border: 1px solid <span class="str">rgba(155,111,232,0.25)</span>;
+border-radius: 10px; padding: 6px 12px;
+color: <span class="str">#9B6FE8</span>; font-size: 10px; font-weight: 600;</pre>
+
+
+  <!-- ══ 10. BOTTOM NAVIGATION ══ -->
+  <h2>10 — Bottom Navigation Bar</h2>
+
+  <pre><span class="comment">/* Nav container */</span>
+height: 68px; padding: 8px 16px 0;
+display: flex; justify-content: space-around; align-items: flex-start;
+background: <span class="str">rgba(26,18,37,0.82)</span>;
+backdrop-filter: blur(28px) saturate(140%);
+border-top: 1px solid <span class="str">rgba(255,255,255,0.07)</span>;
+box-shadow: 0 -1px 0 <span class="str">rgba(210,195,246,0.05)</span>, inset 0 1px 0 <span class="str">rgba(255,255,255,0.04)</span>;
+
+<span class="comment">/* Nav item */</span>
+display: flex; flex-direction: column; align-items: center;
+gap: 3px; min-width: 48px;
+
+<span class="comment">/* Nav label */</span>
+font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
+color: <span class="str">#8B7BA8</span>;            <span class="comment">/* inactive */</span>
+color: <span class="str">#9B6FE8</span>;            <span class="comment">/* active   */</span>
+
+<span class="comment">/* Center FAB (+) button */</span>
+width: 52px; height: 52px; border-radius: 50%;
+margin-top: -18px;           <span class="comment">/* lifts above nav bar */</span>
+background: linear-gradient(145deg, <span class="str">rgba(180,142,240,0.6)</span> 0%, <span class="str">rgba(100,60,180,0.7)</span> 100%);
+backdrop-filter: blur(20px);
+border: 1.5px solid <span class="str">rgba(210,195,246,0.30)</span>;
+box-shadow:
+  inset 0 1.5px 0 <span class="str">rgba(255,255,255,0.25)</span>,
+  inset 0 -1px  0 <span class="str">rgba(0,0,0,0.20)</span>,
+  0 8px 28px <span class="str">rgba(155,111,232,0.45)</span>,
+  0 0 0 4px <span class="str">rgba(155,111,232,0.12)</span>;
+
+<span class="comment">/* Home indicator bar */</span>
+width: 120px; height: 4px;
+background: <span class="str">rgba(210,195,246,0.18)</span>;
+border-radius: 2px;</pre>
+
+
+  <!-- ══ 11. DANCER CARD ══ -->
+  <h2>11 — Dancer Card (My Numbers Screen)</h2>
+
+  <pre><span class="comment">/* Number row — "On Stage" highlighted */</span>
+.num-row.is-now → background: <span class="str">rgba(155,111,232,0.08)</span>; border-radius: 12px;
+
+<span class="comment">/* Big number tag */</span>
+font-family: 'Bebas Neue', sans-serif;
+font-size: 22–26px; letter-spacing: 2px;
+color (active): <span class="str">#B48EF0</span>;
+color (now):    <span class="str">#D2C3F6</span>;
+
+<span class="comment">/* Add-number row */</span>
+display: flex; align-items: center; gap: 8px;
+padding: 8px 0; cursor: pointer;
+color: <span class="str">#9B6FE8</span>; font-size: 11px;
+border-top: 1px solid <span class="str">rgba(255,255,255,0.05)</span>;</pre>
+
+
+  <!-- ══ 12. ANIMATIONS ══ -->
+  <h2>12 — Animations</h2>
+
+  <pre><span class="comment">/* Entrance: fade up */</span>
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+<span class="comment">/* Stagger delays */</span>
+.comp-header          → animation-delay: 0.05s
+.section:nth-child(1) → animation-delay: 0.10s
+.section:nth-child(2) → animation-delay: 0.17s
+.section:nth-child(3) → animation-delay: 0.24s
+.section:nth-child(4) → animation-delay: 0.30s
+
+<span class="comment">/* Refresh spin */</span>
+@keyframes spin { to { transform: rotate(360deg); } }
+.refreshing { animation: spin 0.6s linear; }</pre>
+
+
+  <!-- ══ 13. SCREENS INVENTORY ══ -->
+  <h2>13 — Screen Inventory</h2>
+
+  <table>
+    <tr><th>#</th><th>Screen Name</th><th>Key Components</th></tr>
+    <tr>
+      <td>1</td>
+      <td>Home</td>
+      <td>Live Tracker Card · Report Input · Live Reports List · Schedule Widget · My Numbers mini-cards · Bottom Nav</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Add Number</td>
+      <td>Search/entry field · Category selectors · Dancer assignment</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Competition</td>
+      <td>Competition selector · Schedule docs · Venue info</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Report</td>
+      <td>Number input numpad · Report type picker · Submit CTA</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>My Numbers</td>
+      <td>Dancer Cards · Number rows with status pills · Coming Up list</td>
+    </tr>
+  </table>
+
+  <div class="note-block">
+    <strong>Canonical frame:</strong> All screens are designed at <strong>390 × 844 px</strong> (iPhone 14 logical resolution). Scale factor for display previews: <strong>0.6487</strong> (253 / 390).
+  </div>
+
+
+  <!-- ══ 14. ICON SYSTEM ══ -->
+  <h2>14 — Icon System</h2>
+
+  <table>
+    <tr><th>Icon</th><th>Usage</th><th>Stroke Color</th><th>Size</th></tr>
+    <tr><td>Home (house)</td><td>Nav: Home</td><td><code>#8B7BA8</code> / <code>#9B6FE8</code> active</td><td>22×22</td></tr>
+    <tr><td>Map pin</td><td>Nav: Competition</td><td><code>#8B7BA8</code></td><td>22×22</td></tr>
+    <tr><td>Plus (+)</td><td>Nav FAB / Add row</td><td>white / <code>#9B6FE8</code></td><td>22×22 / 13×13</td></tr>
+    <tr><td>Group (users)</td><td>Nav: Team</td><td><code>#8B7BA8</code></td><td>22×22</td></tr>
+    <tr><td>Person (user)</td><td>Nav: My Nums</td><td><code>#9B6FE8</code> active</td><td>22×22</td></tr>
+    <tr><td>Refresh arrows</td><td>Live Reports: Refresh</td><td><code>#9B6FE8</code></td><td>12×12</td></tr>
+    <tr><td>Checkmark (poly)</td><td>Confirmed badge</td><td><code>#5DE88C</code></td><td>8×8</td></tr>
+    <tr><td>Pencil (edit)</td><td>Dancer card edit</td><td><code>rgba(210,195,246,0.5)</code></td><td>13×13</td></tr>
+    <tr><td>Document + plus</td><td>Schedule: Upload</td><td><code>rgba(155,111,232,0.5)</code></td><td>18×18</td></tr>
+    <tr><td>Signal bars</td><td>Status bar</td><td><code>#F0ECF7</code></td><td>16×16</td></tr>
+    <tr><td>WiFi arcs</td><td>Status bar</td><td><code>#F0ECF7</code></td><td>16×16</td></tr>
+    <tr><td>Battery</td><td>Status bar</td><td><code>#F0ECF7</code></td><td>24×12</td></tr>
+  </table>
+  <div class="note-block">All icons are <strong>inline SVG</strong> with <code>fill="none"</code>, <code>stroke-width="2"</code>, <code>stroke-linecap="round"</code>. No icon library required.</div>
+
+
+  <!-- ══ FOOTER ══ -->
+  <div class="doc-footer">
+    <div class="doc-footer-logo">NUMBER</div>
+    <div class="doc-footer-tag">"Never guess again."</div>
+  </div>
+
+</div>
+</body>
+</html>

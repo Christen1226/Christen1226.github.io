@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "DpoAL57knte-jx_ozLd2c"
+uri = "file://artifacts/numbers/assets/images/icon.png"
+type = "image"
+title = "generated_image"
