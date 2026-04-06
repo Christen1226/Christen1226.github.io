@@ -45,4 +45,15 @@ router.patch("/competitions/:id", (req, res) => {
   res.json({ ok: true, competition: updated });
 });
 
+// DELETE /api/competitions/:id
+router.delete("/competitions/:id", (req, res) => {
+  const { id } = req.params;
+  if (!competitionsStore.has(id)) {
+    res.status(404).json({ error: "Competition not found" });
+    return;
+  }
+  competitionsStore.delete(id);
+  res.json({ ok: true });
+});
+
 export default router;

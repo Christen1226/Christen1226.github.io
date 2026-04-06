@@ -31,6 +31,7 @@ function CompetitionCard({
   onSwitch,
   onEdit,
   onLeave,
+  onDelete,
 }: {
   comp: Competition;
   isActive: boolean;
@@ -39,6 +40,7 @@ function CompetitionCard({
   onSwitch: () => void;
   onEdit?: () => void;
   onLeave?: () => void;
+  onDelete?: () => void;
 }) {
   const colors = useColors();
   return (
@@ -142,6 +144,19 @@ function CompetitionCard({
             </Pressable>
           </>
         )}
+        {onDelete && (
+          <>
+            <View style={styles.metaDot} />
+            <Pressable
+              onPress={onDelete}
+              style={({ pressed }) => [styles.editDatesBtn, { opacity: pressed ? 0.6 : 1 }]}
+              hitSlop={8}
+            >
+              <Feather name="trash-2" size={11} color="#ef4444" />
+              <Text style={[styles.editDatesBtnText, { color: "#ef4444" }]}>Delete</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );
@@ -189,7 +204,7 @@ function FormField({
 export default function CompetitionScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, leaveCompetition, createCompetition, updateCompetitionDates, userName, refreshCompetitions, scheduleImages, uploadSchedule, scoringImages, uploadScoring, joinedCompetitionIds } =
+  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, leaveCompetition, deleteCompetition, createCompetition, updateCompetitionDates, userName, refreshCompetitions, scheduleImages, uploadSchedule, scoringImages, uploadScoring, joinedCompetitionIds } =
     useApp();
   const router = useRouter();
 
@@ -239,6 +254,9 @@ export default function CompetitionScreen() {
 
   // Leave competition confirmation
   const [leavingComp, setLeavingComp] = useState<Competition | null>(null);
+
+  // Delete competition confirmation (creator only)
+  const [deletingComp, setDeletingComp] = useState<Competition | null>(null);
 
   const openEditDates = useCallback((comp: Competition) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -621,6 +639,14 @@ export default function CompetitionScreen() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setLeavingComp(comp);
               }}
+              onDelete={
+                userName && comp.createdBy === userName
+                  ? () => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setDeletingComp(comp);
+                    }
+                  : undefined
+              }
             />
           ))
         )}
@@ -1042,6 +1068,50 @@ export default function CompetitionScreen() {
               >
                 <Feather name="log-out" size={14} color="#fff" />
                 <Text style={[styles.leaveConfirmText, { color: "#fff" }]}>Leave</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Delete Competition Confirmation Modal */}
+      <Modal visible={!!deletingComp} animationType="slide" transparent statusBarTranslucent>
+        <Pressable style={styles.modalOverlay} onPress={() => setDeletingComp(null)}>
+          <Pressable style={[styles.leaveSheet, { backgroundColor: colors.background }]}>
+            <View style={[styles.leaveIconWrap, { backgroundColor: "#ef444420" }]}>
+              <Feather name="trash-2" size={22} color="#ef4444" />
+            </View>
+            <Text style={[styles.leaveTitle, { color: colors.foreground }]}>Delete Competition?</Text>
+            <Text style={[styles.leaveSub, { color: colors.mutedForeground }]}>
+              <Text style={{ color: colors.lavender, fontFamily: "Inter_600SemiBold" }}>
+                {deletingComp?.name}
+              </Text>
+              {" "}will be permanently removed for everyone. This cannot be undone.
+            </Text>
+            <View style={styles.leaveBtns}>
+              <Pressable
+                onPress={() => setDeletingComp(null)}
+                style={({ pressed }) => [
+                  styles.cancelBtn,
+                  { borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (!deletingComp) return;
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                  deleteCompetition(deletingComp.id);
+                  setDeletingComp(null);
+                }}
+                style={({ pressed }) => [
+                  styles.leaveConfirmBtn,
+                  { opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <Feather name="trash-2" size={14} color="#fff" />
+                <Text style={[styles.leaveConfirmText, { color: "#fff" }]}>Delete</Text>
               </Pressable>
             </View>
           </Pressable>

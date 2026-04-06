@@ -69,6 +69,7 @@ interface AppContextValue {
   joinCompetition: (id: string) => void;
   switchCompetition: (id: string) => void;
   leaveCompetition: (id: string) => void;
+  deleteCompetition: (id: string) => void;
   signIn: (name: string) => void;
   signOut: () => void;
   setProfileImage: (uri: string | null) => void;
@@ -254,6 +255,12 @@ async function patchApiCompetition(id: string, startDate: string, endDate: strin
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ startDate, endDate }),
     });
+  } catch {}
+}
+
+async function deleteApiCompetition(id: string): Promise<void> {
+  try {
+    await fetch(`${getApiBase()}/api/competitions/${id}`, { method: "DELETE" });
   } catch {}
 }
 
@@ -740,6 +747,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const deleteCompetition = useCallback((id: string) => {
+    // Remove from all competitions list
+    setAllCompetitions((prev) => {
+      const updated = prev.filter((c) => c.id !== id);
+      const userCreated = updated.filter((c) => !MOCK_COMPETITIONS.find((m) => m.id === c.id));
+      AsyncStorage.setItem("competitions", JSON.stringify(userCreated)).catch(() => {});
+      return updated;
+    });
+    // Remove from joined list
+    setJoinedCompetitionIds((prev) => {
+      const updated = prev.filter((jid) => jid !== id);
+      AsyncStorage.setItem("joinedCompetitions", JSON.stringify(updated)).catch(() => {});
+      // If deleting the active competition, switch to the next available joined one
+      if (competitionRef.current?.id === id) {
+        setAllCompetitions((all) => {
+          const remaining = all.filter((c) => c.id !== id);
+          const next = remaining.find((c) => updated.includes(c.id)) ?? remaining[0] ?? null;
+          setCompetitionState(next);
+          if (next) AsyncStorage.setItem("activeCompetition", JSON.stringify(next)).catch(() => {});
+          else AsyncStorage.removeItem("activeCompetition").catch(() => {});
+          return remaining;
+        });
+      }
+      return updated;
+    });
+    // Delete from shared API so it disappears for all users
+    deleteApiCompetition(id);
+  }, []);
+
   const createCompetition = useCallback(
     (name: string, venue: string, location: string, startDate: string, endDate: string) => {
       const newComp: Competition = {
@@ -851,6 +887,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         joinCompetition,
         switchCompetition,
         leaveCompetition,
+        deleteCompetition,
         signIn,
         signOut,
         setProfileImage,
