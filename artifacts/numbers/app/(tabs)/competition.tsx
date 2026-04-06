@@ -1,11 +1,12 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -133,8 +134,15 @@ function FormField({
 export default function CompetitionScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, createCompetition, userName } =
+  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, createCompetition, userName, refreshCompetitions } =
     useApp();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refreshCompetitions();
+    setRefreshing(false);
+  }, [refreshCompetitions]);
 
   const [search, setSearch] = useState("");
   const [showQuickReport, setShowQuickReport] = useState(false);
@@ -209,6 +217,14 @@ export default function CompetitionScreen() {
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.violet}
+            colors={[colors.violet]}
+          />
+        }
       >
         {/* Header */}
         <View style={styles.headerRow}>

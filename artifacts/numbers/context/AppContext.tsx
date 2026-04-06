@@ -40,6 +40,8 @@ interface AppContextValue {
   userInitials: string;
   profileImage: string | null;
   isLive: boolean;
+  refreshStage: () => Promise<void>;
+  refreshCompetitions: () => Promise<void>;
   submitCurrentNumber: (num: number) => void;
   submitReport: (type: CommunityReport["type"], message: string) => void;
   confirmReport: (id: string) => void;
@@ -293,6 +295,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const refreshStage = useCallback(async () => {
+    const comp = competitionRef.current;
+    if (!comp) return;
+    const data = await fetchStage(comp.id);
+    if (data) {
+      setIsLive(true);
+      setCurrentNumber(data.currentNumber);
+      setReporterCount(data.reporterCount);
+      if (data.lastReportedAt) setLastReportedAt(new Date(data.lastReportedAt));
+    } else {
+      setIsLive(false);
+    }
+  }, []);
+
+  const refreshCompetitions = useCallback(async () => {
+    try {
+      const compsJson = await AsyncStorage.getItem("competitions");
+      if (compsJson) {
+        const saved: Competition[] = JSON.parse(compsJson);
+        const userCreated = saved.filter((s) => !MOCK_COMPETITIONS.find((m) => m.id === s.id));
+        setAllCompetitions([...MOCK_COMPETITIONS, ...userCreated]);
+      } else {
+        setAllCompetitions(MOCK_COMPETITIONS);
+      }
+    } catch {}
+  }, []);
+
   const saveDancersForComp = useCallback((updated: Dancer[]) => {
     const compId = competitionRef.current?.id;
     if (!compId) return;
@@ -426,6 +455,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         userInitials,
         profileImage,
         isLive,
+        refreshStage,
+        refreshCompetitions,
         submitCurrentNumber,
         submitReport,
         confirmReport,

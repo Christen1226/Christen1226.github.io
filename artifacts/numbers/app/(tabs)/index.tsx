@@ -1,10 +1,11 @@
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useCallback, useState } from "react";
 import {
   Image,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,8 +23,15 @@ import { useColors } from "@/hooks/useColors";
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { competition, userInitials, isSignedIn, profileImage } = useApp();
+  const { competition, userInitials, isSignedIn, profileImage, refreshStage } = useApp();
   const router = useRouter();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refreshStage();
+    setRefreshing(false);
+  }, [refreshStage]);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
@@ -39,6 +47,14 @@ export default function HomeScreen() {
           },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.violet}
+            colors={[colors.violet]}
+          />
+        }
       >
         <View style={styles.topRow}>
           <View>
