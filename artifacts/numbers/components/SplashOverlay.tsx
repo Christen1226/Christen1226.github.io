@@ -1,39 +1,27 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, Image, StyleSheet, View } from "react-native";
+import { Animated, Image, StyleSheet } from "react-native";
 
 const splashImage = require("@/assets/images/splash.jpg");
 
 interface Props {
-  ready: boolean;
   onDone: () => void;
 }
 
-export function SplashOverlay({ ready, onDone }: Props) {
+export function SplashOverlay({ onDone }: Props) {
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Fade in immediately
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: 420,
-      useNativeDriver: false,
-    }).start();
+    Animated.sequence([
+      // 1s fade in
+      Animated.timing(opacity, { toValue: 1, duration: 1000, useNativeDriver: false }),
+      // 2s hold at full opacity
+      Animated.delay(2000),
+      // 1s fade out
+      Animated.timing(opacity, { toValue: 0, duration: 1000, useNativeDriver: false }),
+    ]).start(({ finished }) => {
+      if (finished) onDone();
+    });
   }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    // Hold briefly then fade out once the app is ready
-    const delay = setTimeout(() => {
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 480,
-        useNativeDriver: false,
-      }).start(({ finished }) => {
-        if (finished) onDone();
-      });
-    }, 600);
-    return () => clearTimeout(delay);
-  }, [ready]);
 
   return (
     <Animated.View style={[styles.overlay, { opacity }]} pointerEvents="none">

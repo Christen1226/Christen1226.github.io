@@ -43,9 +43,7 @@ export default function RootLayout() {
   const appReady = !!(fontsLoaded || fontError);
 
   useEffect(() => {
-    if (appReady) {
-      SplashScreen.hideAsync();
-    }
+    if (appReady) SplashScreen.hideAsync();
   }, [appReady]);
 
   if (!appReady) return null;
@@ -60,10 +58,7 @@ export default function RootLayout() {
                 <View style={styles.root}>
                   <RootLayoutNav />
                   {!splashDone && (
-                    <SplashOverlay
-                      ready={appReady}
-                      onDone={() => setSplashDone(true)}
-                    />
+                    <SplashOverlay onDone={() => setSplashDone(true)} />
                   )}
                 </View>
               </KeyboardProvider>
