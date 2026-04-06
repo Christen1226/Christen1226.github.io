@@ -18,12 +18,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Dancer, useApp } from "@/context/AppContext";
 import { useColors } from "@/hooks/useColors";
 
-function DancerCard({ dancer }: { dancer: Dancer }) {
+function DancerCard({
+  dancer,
+  onEdit,
+}: {
+  dancer: Dancer;
+  onEdit: (dancer: Dancer) => void;
+}) {
   const colors = useColors();
   const { currentNumber, removeDancer } = useApp();
 
   const isNow = dancer.numbers.includes(currentNumber);
   const isUpcoming = dancer.numbers.some((n) => n > currentNumber && n - currentNumber <= 10);
+  const nextNumber = Math.min(...dancer.numbers.filter((n) => n > currentNumber));
 
   const handleDelete = () => {
     Alert.alert("Remove Dancer", `Remove ${dancer.name}?`, [
@@ -44,9 +51,7 @@ function DancerCard({ dancer }: { dancer: Dancer }) {
       style={[
         styles.dancerCard,
         {
-          backgroundColor: isNow
-            ? "rgba(155,111,232,0.12)"
-            : colors.card,
+          backgroundColor: isNow ? "rgba(155,111,232,0.12)" : colors.card,
           borderColor: isNow ? colors.violet : isUpcoming ? colors.green : colors.border,
         },
       ]}
@@ -67,9 +72,26 @@ function DancerCard({ dancer }: { dancer: Dancer }) {
           )}
           <Text style={[styles.dancerName, { color: colors.foreground }]}>{dancer.name}</Text>
         </View>
-        <Pressable onPress={handleDelete} hitSlop={8}>
-          <Feather name="trash-2" size={16} color={colors.mutedForeground} />
-        </Pressable>
+
+        <View style={styles.cardActions}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onEdit(dancer);
+            }}
+            hitSlop={8}
+            style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <Feather name="edit-2" size={14} color={colors.violet} />
+          </Pressable>
+          <Pressable
+            onPress={handleDelete}
+            hitSlop={8}
+            style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <Feather name="trash-2" size={14} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.numbersRow}>
@@ -99,12 +121,10 @@ function DancerCard({ dancer }: { dancer: Dancer }) {
       <View style={[styles.stageRow, { borderTopColor: colors.border }]}>
         <Text style={[styles.stageLabel, { color: colors.mutedForeground }]}>Stage now:</Text>
         <Text style={[styles.stageNum, { color: colors.lavender }]}>{currentNumber}</Text>
-        {dancer.numbers.length > 0 && (
-          <>
-            <Text style={[styles.stageLabel, { color: colors.mutedForeground }]}>
-              ·  Next: #{Math.min(...dancer.numbers.filter((n) => n > currentNumber)) || "–"}
-            </Text>
-          </>
+        {dancer.numbers.length > 0 && isFinite(nextNumber) && (
+          <Text style={[styles.stageLabel, { color: colors.mutedForeground }]}>
+            ·  Next: #{nextNumber}
+          </Text>
         )}
       </View>
     </View>
@@ -114,24 +134,53 @@ function DancerCard({ dancer }: { dancer: Dancer }) {
 export default function MyNumbersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { dancers, addDancer } = useApp();
+  const { dancers, addDancer, updateDancer } = useApp();
+
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingDancer, setEditingDancer] = useState<Dancer | null>(null);
   const [name, setName] = useState("");
   const [numbersText, setNumbersText] = useState("");
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
+  const isEditing = editingDancer !== null;
 
-  const handleAdd = () => {
-    if (!name.trim()) return;
-    const nums = numbersText
+  const openAdd = () => {
+    setEditingDancer(null);
+    setName("");
+    setNumbersText("");
+    setModalVisible(true);
+  };
+
+  const openEdit = (dancer: Dancer) => {
+    setEditingDancer(dancer);
+    setName(dancer.name);
+    setNumbersText(dancer.numbers.join(", "));
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setEditingDancer(null);
+    setName("");
+    setNumbersText("");
+  };
+
+  const parseNumbers = () =>
+    numbersText
       .split(/[\s,]+/)
       .map((s) => parseInt(s, 10))
       .filter((n) => !isNaN(n) && n > 0);
+
+  const handleSave = () => {
+    if (!name.trim()) return;
+    const nums = parseNumbers();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    addDancer(name.trim(), nums);
-    setName("");
-    setNumbersText("");
-    setModalVisible(false);
+    if (isEditing && editingDancer) {
+      updateDancer(editingDancer.id, name.trim(), nums);
+    } else {
+      addDancer(name.trim(), nums);
+    }
+    closeModal();
   };
 
   return (
@@ -151,7 +200,7 @@ export default function MyNumbersScreen() {
           <Text style={[styles.screenTitle, { color: colors.lavender }]}>MY NUMBERS</Text>
           <Pressable
             style={[styles.addDancerBtn, { backgroundColor: colors.violet }]}
-            onPress={() => setModalVisible(true)}
+            onPress={openAdd}
           >
             <Feather name="plus" size={16} color={colors.foreground} />
             <Text style={[styles.addDancerText, { color: colors.foreground }]}>Add Dancer</Text>
@@ -167,13 +216,15 @@ export default function MyNumbersScreen() {
             </Text>
             <Pressable
               style={[styles.emptyAddBtn, { backgroundColor: colors.violet }]}
-              onPress={() => setModalVisible(true)}
+              onPress={openAdd}
             >
               <Text style={[styles.emptyAddText, { color: colors.foreground }]}>Add First Dancer</Text>
             </Pressable>
           </View>
         ) : (
-          dancers.map((d) => <DancerCard key={d.id} dancer={d} />)
+          dancers.map((d) => (
+            <DancerCard key={d.id} dancer={d} onEdit={openEdit} />
+          ))
         )}
       </ScrollView>
 
@@ -181,18 +232,25 @@ export default function MyNumbersScreen() {
         visible={modalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={closeModal}
       >
         <KeyboardAvoidingView
           style={styles.modalWrapper}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          <Pressable style={styles.modalOverlay} onPress={() => setModalVisible(false)}>
+          <Pressable style={styles.modalOverlay} onPress={closeModal}>
             <View
               style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
               <Pressable>
-                <Text style={[styles.modalTitle, { color: colors.foreground }]}>Add Dancer</Text>
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+                    {isEditing ? "Edit Dancer" : "Add Dancer"}
+                  </Text>
+                  <Pressable onPress={closeModal} hitSlop={8}>
+                    <Feather name="x" size={20} color={colors.mutedForeground} />
+                  </Pressable>
+                </View>
 
                 <Text style={[styles.modalLabel, { color: colors.mutedForeground }]}>DANCER NAME</Text>
                 <TextInput
@@ -204,8 +262,9 @@ export default function MyNumbersScreen() {
                   placeholderTextColor={colors.mutedForeground}
                   value={name}
                   onChangeText={setName}
-                  autoFocus
+                  autoFocus={!isEditing}
                   returnKeyType="next"
+                  autoCapitalize="words"
                 />
 
                 <Text style={[styles.modalLabel, { color: colors.mutedForeground }]}>COMPETITION NUMBER(S)</Text>
@@ -220,24 +279,44 @@ export default function MyNumbersScreen() {
                   onChangeText={setNumbersText}
                   keyboardType="numbers-and-punctuation"
                   returnKeyType="done"
-                  onSubmitEditing={handleAdd}
+                  onSubmitEditing={handleSave}
+                  autoFocus={isEditing}
                 />
                 <Text style={[styles.hintText, { color: colors.mutedForeground }]}>
                   Separate multiple numbers with commas
                 </Text>
 
+                {isEditing && (
+                  <View style={[styles.editHint, { backgroundColor: "rgba(155,111,232,0.08)", borderColor: "rgba(155,111,232,0.2)" }]}>
+                    <Feather name="info" size={11} color={colors.violet} />
+                    <Text style={[styles.editHintText, { color: colors.mutedForeground }]}>
+                      Editing {editingDancer?.name} · changes apply immediately
+                    </Text>
+                  </View>
+                )}
+
                 <View style={styles.modalButtons}>
                   <Pressable
                     style={[styles.cancelBtn, { borderColor: colors.border }]}
-                    onPress={() => setModalVisible(false)}
+                    onPress={closeModal}
                   >
                     <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>Cancel</Text>
                   </Pressable>
                   <Pressable
-                    style={[styles.submitBtn, { backgroundColor: colors.violet }]}
-                    onPress={handleAdd}
+                    style={[
+                      styles.submitBtn,
+                      { backgroundColor: name.trim() ? colors.violet : colors.surface },
+                    ]}
+                    onPress={handleSave}
                   >
-                    <Text style={[styles.submitText, { color: colors.foreground }]}>Add</Text>
+                    <Text
+                      style={[
+                        styles.submitText,
+                        { color: name.trim() ? colors.foreground : colors.mutedForeground },
+                      ]}
+                    >
+                      {isEditing ? "Save Changes" : "Add"}
+                    </Text>
                   </Pressable>
                 </View>
               </Pressable>
@@ -291,6 +370,19 @@ const styles = StyleSheet.create({
   dancerLeft: {
     flex: 1,
     gap: 6,
+  },
+  cardActions: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+  },
+  actionBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   statusBadge: {
     alignSelf: "flex-start",
@@ -385,10 +477,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderBottomWidth: 0,
   },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
   modalTitle: {
     fontSize: 18,
     fontFamily: "Inter_700Bold",
-    marginBottom: 20,
   },
   modalLabel: {
     fontSize: 9,
@@ -409,7 +506,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_400Regular",
     marginTop: -8,
-    marginBottom: 16,
+    marginBottom: 14,
+  },
+  editHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  editHintText: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
+    lineHeight: 16,
   },
   modalButtons: {
     flexDirection: "row",
@@ -428,7 +540,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
   },
   submitBtn: {
-    flex: 1,
+    flex: 2,
     height: 48,
     borderRadius: 12,
     alignItems: "center",

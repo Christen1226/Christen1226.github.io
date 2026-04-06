@@ -45,6 +45,7 @@ interface AppContextValue {
   addDancer: (name: string, numbers: number[]) => void;
   removeDancer: (id: string) => void;
   updateDancerNumbers: (id: string, numbers: number[]) => void;
+  updateDancer: (id: string, name: string, numbers: number[]) => void;
   setCompetition: (comp: Competition) => void;
   createCompetition: (name: string, venue: string, location: string, startDate: string, endDate: string) => void;
   joinCompetition: (id: string) => void;
@@ -218,6 +219,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDancers((prev) => prev.map((d) => (d.id === id ? { ...d, numbers } : d)));
   }, []);
 
+  const updateDancer = useCallback((id: string, name: string, numbers: number[]) => {
+    setDancers((prev) => prev.map((d) => (d.id === id ? { ...d, name, numbers } : d)));
+  }, []);
+
   const setCompetition = useCallback((comp: Competition) => {
     setCompetitionState(comp);
     AsyncStorage.setItem("activeCompetition", JSON.stringify(comp)).catch(() => {});
@@ -305,6 +310,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addDancer,
         removeDancer,
         updateDancerNumbers,
+        updateDancer,
         setCompetition,
         createCompetition,
         joinCompetition,
