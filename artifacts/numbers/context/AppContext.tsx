@@ -20,7 +20,11 @@ export interface Competition {
   id: string;
   name: string;
   venue: string;
-  date: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  createdBy: string;
+  memberCount: number;
 }
 
 interface AppContextValue {
@@ -30,6 +34,7 @@ interface AppContextValue {
   reports: CommunityReport[];
   dancers: Dancer[];
   competition: Competition | null;
+  allCompetitions: Competition[];
   isSignedIn: boolean;
   userName: string;
   userInitials: string;
@@ -41,6 +46,8 @@ interface AppContextValue {
   removeDancer: (id: string) => void;
   updateDancerNumbers: (id: string, numbers: number[]) => void;
   setCompetition: (comp: Competition) => void;
+  createCompetition: (name: string, venue: string, location: string, startDate: string, endDate: string) => void;
+  joinCompetition: (id: string) => void;
   signIn: (name: string) => void;
   signOut: () => void;
   setProfileImage: (uri: string | null) => void;
@@ -75,12 +82,48 @@ const MOCK_REPORTS: CommunityReport[] = [
   },
 ];
 
-const DEFAULT_COMPETITION: Competition = {
-  id: "c1",
-  name: "STARBOUND 2026",
-  venue: "Marriott Convention Center",
-  date: "April 6, 2026",
-};
+const MOCK_COMPETITIONS: Competition[] = [
+  {
+    id: "c1",
+    name: "STARBOUND 2026",
+    venue: "Marriott Convention Center",
+    location: "Atlanta, GA",
+    startDate: "Apr 6, 2026",
+    endDate: "Apr 7, 2026",
+    createdBy: "Lisa K.",
+    memberCount: 47,
+  },
+  {
+    id: "c2",
+    name: "SHOWSTOPPER NATIONALS",
+    venue: "Gaylord Opryland Resort",
+    location: "Nashville, TN",
+    startDate: "Apr 12, 2026",
+    endDate: "Apr 14, 2026",
+    createdBy: "Jen T.",
+    memberCount: 83,
+  },
+  {
+    id: "c3",
+    name: "DANCE SPECTACULAR",
+    venue: "Orange County Convention Center",
+    location: "Orlando, FL",
+    startDate: "May 2, 2026",
+    endDate: "May 4, 2026",
+    createdBy: "Mike R.",
+    memberCount: 62,
+  },
+  {
+    id: "c4",
+    name: "REGIONAL CHAMPIONSHIP",
+    venue: "Dallas Convention Center",
+    location: "Dallas, TX",
+    startDate: "May 17, 2026",
+    endDate: "May 18, 2026",
+    createdBy: "Amy S.",
+    memberCount: 29,
+  },
+];
 
 function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -92,7 +135,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [reporterCount, setReporterCount] = useState(12);
   const [reports, setReports] = useState<CommunityReport[]>(MOCK_REPORTS);
   const [dancers, setDancers] = useState<Dancer[]>([]);
-  const [competition, setCompetitionState] = useState<Competition | null>(DEFAULT_COMPETITION);
+  const [competition, setCompetitionState] = useState<Competition | null>(MOCK_COMPETITIONS[0]);
+  const [allCompetitions, setAllCompetitions] = useState<Competition[]>(MOCK_COMPETITIONS);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [userName, setUserName] = useState("");
   const [profileImage, setProfileImageState] = useState<string | null>(null);
@@ -102,6 +146,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const dancersJson = await AsyncStorage.getItem("dancers");
         if (dancersJson) setDancers(JSON.parse(dancersJson));
+
+        const compsJson = await AsyncStorage.getItem("competitions");
+        if (compsJson) {
+          const saved: Competition[] = JSON.parse(compsJson);
+          // Merge mock competitions with any user-created ones
+          const userCreated = saved.filter((s) => !MOCK_COMPETITIONS.find((m) => m.id === s.id));
+          setAllCompetitions([...MOCK_COMPETITIONS, ...userCreated]);
+        }
+
+        const activeCompJson = await AsyncStorage.getItem("activeCompetition");
+        if (activeCompJson) setCompetitionState(JSON.parse(activeCompJson));
+
         const userJson = await AsyncStorage.getItem("user");
         if (userJson) {
           const user = JSON.parse(userJson);
@@ -164,7 +220,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setCompetition = useCallback((comp: Competition) => {
     setCompetitionState(comp);
+    AsyncStorage.setItem("activeCompetition", JSON.stringify(comp)).catch(() => {});
   }, []);
+
+  const joinCompetition = useCallback((id: string) => {
+    setAllCompetitions((prev) => {
+      const found = prev.find((c) => c.id === id);
+      if (!found) return prev;
+      const updated = prev.map((c) =>
+        c.id === id ? { ...c, memberCount: c.memberCount + 1 } : c
+      );
+      const joined = updated.find((c) => c.id === id)!;
+      setCompetitionState(joined);
+      AsyncStorage.setItem("activeCompetition", JSON.stringify(joined)).catch(() => {});
+      AsyncStorage.setItem(
+        "competitions",
+        JSON.stringify(updated.filter((c) => !MOCK_COMPETITIONS.find((m) => m.id === c.id)))
+      ).catch(() => {});
+      return updated;
+    });
+  }, []);
+
+  const createCompetition = useCallback(
+    (name: string, venue: string, location: string, startDate: string, endDate: string) => {
+      const newComp: Competition = {
+        id: generateId(),
+        name: name.toUpperCase(),
+        venue,
+        location,
+        startDate,
+        endDate,
+        createdBy: userName || "You",
+        memberCount: 1,
+      };
+      setAllCompetitions((prev) => {
+        const updated = [newComp, ...prev];
+        const userCreated = updated.filter((c) => !MOCK_COMPETITIONS.find((m) => m.id === c.id));
+        AsyncStorage.setItem("competitions", JSON.stringify(userCreated)).catch(() => {});
+        return updated;
+      });
+      setCompetitionState(newComp);
+      AsyncStorage.setItem("activeCompetition", JSON.stringify(newComp)).catch(() => {});
+    },
+    [userName]
+  );
 
   const signIn = useCallback(async (name: string) => {
     setUserName(name);
@@ -195,6 +294,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         reports,
         dancers,
         competition,
+        allCompetitions,
         isSignedIn,
         userName,
         userInitials,
@@ -206,6 +306,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         removeDancer,
         updateDancerNumbers,
         setCompetition,
+        createCompetition,
+        joinCompetition,
         signIn,
         signOut,
         setProfileImage,
