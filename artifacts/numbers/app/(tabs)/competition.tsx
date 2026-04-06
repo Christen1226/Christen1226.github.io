@@ -162,7 +162,8 @@ export default function CompetitionScreen() {
     useApp();
   const router = useRouter();
 
-  const [uploadingSchedule, setUploadingSchedule] = useState(false);
+  const [pendingSchedule, setPendingSchedule] = useState<string | null>(null);
+  const [publishingSchedule, setPublishingSchedule] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -245,10 +246,16 @@ export default function CompetitionScreen() {
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
     const mime = asset.mimeType ?? "image/jpeg";
-    const uri = `data:${mime};base64,${asset.base64}`;
-    setUploadingSchedule(true);
-    await uploadSchedule(uri);
-    setUploadingSchedule(false);
+    setPendingSchedule(`data:${mime};base64,${asset.base64}`);
+  };
+
+  const handlePublishSchedule = async () => {
+    if (!pendingSchedule) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setPublishingSchedule(true);
+    await uploadSchedule(pendingSchedule);
+    setPublishingSchedule(false);
+    setPendingSchedule(null);
   };
 
   const canCreate = newName.trim().length > 0 && newLocation.trim().length > 0 && newStartDate.trim().length > 0;
@@ -373,13 +380,9 @@ export default function CompetitionScreen() {
                   { opacity: pressed ? 0.6 : 1 },
                 ]}
               >
-                {uploadingSchedule ? (
-                  <ActivityIndicator size="small" color={colors.mutedForeground} />
-                ) : (
-                  <Feather name="refresh-cw" size={12} color={colors.mutedForeground} />
-                )}
+                <Feather name="refresh-cw" size={12} color={colors.mutedForeground} />
                 <Text style={[styles.scheduleReplaceText, { color: colors.mutedForeground }]}>
-                  {uploadingSchedule ? "Uploading…" : "Replace schedule"}
+                  Replace schedule
                 </Text>
               </Pressable>
             )}
@@ -579,6 +582,86 @@ export default function CompetitionScreen() {
             </View>
           </Pressable>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Schedule preview modal */}
+      <Modal visible={!!pendingSchedule} animationType="slide" transparent statusBarTranslucent>
+        <View style={[styles.previewOverlay, { backgroundColor: "rgba(0,0,0,0.85)" }]}>
+          <View
+            style={[
+              styles.previewSheet,
+              { backgroundColor: colors.background, paddingBottom: Platform.OS === "web" ? 32 : insets.bottom + 20 },
+            ]}
+          >
+            {/* Preview header */}
+            <View style={styles.previewHeader}>
+              <Text style={[styles.previewTitle, { color: colors.foreground }]}>Review Schedule</Text>
+              <Pressable
+                onPress={() => setPendingSchedule(null)}
+                style={({ pressed }) => [styles.previewClose, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <Feather name="x" size={20} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+
+            <Text style={[styles.previewSub, { color: colors.mutedForeground }]}>
+              This will be shared with all members of{" "}
+              <Text style={{ color: colors.lavender }}>{competition?.name}</Text>
+            </Text>
+
+            {/* Preview image */}
+            {pendingSchedule && (
+              <ScrollView
+                style={styles.previewScroll}
+                contentContainerStyle={styles.previewScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <Image
+                  source={{ uri: pendingSchedule }}
+                  style={styles.previewImage}
+                  resizeMode="contain"
+                />
+              </ScrollView>
+            )}
+
+            {/* Action buttons */}
+            <View style={styles.previewBtns}>
+              <Pressable
+                onPress={async () => {
+                  setPendingSchedule(null);
+                  await handlePickSchedule();
+                }}
+                style={({ pressed }) => [
+                  styles.previewRetakeBtn,
+                  { borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Feather name="refresh-cw" size={15} color={colors.foreground} />
+                <Text style={[styles.previewRetakeBtnText, { color: colors.foreground }]}>
+                  Choose different
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handlePublishSchedule}
+                disabled={publishingSchedule}
+                style={({ pressed }) => [
+                  styles.previewPublishBtn,
+                  { backgroundColor: colors.violet, opacity: pressed || publishingSchedule ? 0.8 : 1 },
+                ]}
+              >
+                {publishingSchedule ? (
+                  <ActivityIndicator size="small" color={colors.foreground} />
+                ) : (
+                  <Feather name="upload-cloud" size={16} color={colors.foreground} />
+                )}
+                <Text style={[styles.previewPublishBtnText, { color: colors.foreground }]}>
+                  {publishingSchedule ? "Publishing…" : "Publish to Competition"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -998,5 +1081,82 @@ const styles = StyleSheet.create({
   submitText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+  },
+  // Schedule preview modal
+  previewOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  previewSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: "90%",
+  },
+  previewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  previewTitle: {
+    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+  },
+  previewClose: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  previewSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 17,
+    marginBottom: 16,
+  },
+  previewScroll: {
+    maxHeight: 360,
+    borderRadius: 14,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  previewScrollContent: {
+    alignItems: "center",
+  },
+  previewImage: {
+    width: "100%",
+    height: undefined,
+    aspectRatio: 0.75,
+    borderRadius: 14,
+  },
+  previewBtns: {
+    gap: 10,
+  },
+  previewRetakeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 13,
+  },
+  previewRetakeBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  previewPublishBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 15,
+  },
+  previewPublishBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.3,
   },
 });

@@ -1,4 +1,5 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -22,31 +23,130 @@ export default function ScheduleScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { competition, scheduleImage, uploadSchedule } = useApp();
-  const [uploading, setUploading] = useState(false);
+
+  // pendingImage = picked but not yet published
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
-  const handlePickImage = async () => {
+  const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") return;
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       base64: true,
       quality: 0.8,
       allowsEditing: false,
     });
-
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
     const mime = asset.mimeType ?? "image/jpeg";
-    const uri = `data:${mime};base64,${asset.base64}`;
-
-    setUploading(true);
-    await uploadSchedule(uri);
-    setUploading(false);
+    setPendingImage(`data:${mime};base64,${asset.base64}`);
   };
 
+  const handlePublish = async () => {
+    if (!pendingImage) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setPublishing(true);
+    await uploadSchedule(pendingImage);
+    setPublishing(false);
+    setPendingImage(null);
+  };
+
+  const handleRetake = async () => {
+    setPendingImage(null);
+    await pickImage();
+  };
+
+  const handleCancel = () => {
+    setPendingImage(null);
+  };
+
+  // ── PREVIEW STATE ──────────────────────────────────────────────────────────
+  if (pendingImage) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Preview header */}
+        <View style={[styles.header, { paddingTop: topPad + 8 }]}>
+          <Pressable
+            onPress={handleCancel}
+            style={({ pressed }) => [styles.backBtn, { opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Feather name="x" size={20} color={colors.foreground} />
+          </Pressable>
+          <View style={styles.headerCenter}>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]}>PREVIEW</Text>
+            <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
+              Review before publishing
+            </Text>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: Platform.OS === "web" ? 40 : insets.bottom + 32 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Preview image */}
+          <Image
+            source={{ uri: pendingImage }}
+            style={styles.previewImage}
+            resizeMode="contain"
+          />
+
+          {/* Action banner */}
+          <View style={[styles.previewBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Feather name="info" size={14} color={colors.mutedForeground} />
+            <Text style={[styles.previewBannerText, { color: colors.mutedForeground }]}>
+              Once published, this schedule is visible to everyone in{" "}
+              <Text style={{ color: colors.lavender }}>
+                {competition?.name ?? "your competition"}
+              </Text>
+              .
+            </Text>
+          </View>
+
+          {/* Buttons */}
+          <View style={styles.previewActions}>
+            <Pressable
+              onPress={handleRetake}
+              style={({ pressed }) => [
+                styles.retakeBtn,
+                { borderColor: colors.border, backgroundColor: colors.surface, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Feather name="refresh-cw" size={15} color={colors.foreground} />
+              <Text style={[styles.retakeBtnText, { color: colors.foreground }]}>Choose different</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={handlePublish}
+              style={({ pressed }) => [
+                styles.publishBtn,
+                { backgroundColor: colors.violet, opacity: pressed ? 0.8 : 1 },
+              ]}
+              disabled={publishing}
+            >
+              {publishing ? (
+                <ActivityIndicator size="small" color={colors.foreground} />
+              ) : (
+                <Feather name="upload-cloud" size={16} color={colors.foreground} />
+              )}
+              <Text style={[styles.publishBtnText, { color: colors.foreground }]}>
+                {publishing ? "Publishing…" : "Publish to Competition"}
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // ── NORMAL STATE ───────────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
@@ -66,17 +166,13 @@ export default function ScheduleScreen() {
           )}
         </View>
         <Pressable
-          onPress={handlePickImage}
+          onPress={pickImage}
           style={({ pressed }) => [
             styles.uploadBtn,
             { backgroundColor: colors.violet, opacity: pressed ? 0.75 : 1 },
           ]}
         >
-          {uploading ? (
-            <ActivityIndicator size="small" color={colors.foreground} />
-          ) : (
-            <Feather name="upload" size={16} color={colors.foreground} />
-          )}
+          <Feather name="upload" size={16} color={colors.foreground} />
         </Pressable>
       </View>
 
@@ -96,7 +192,7 @@ export default function ScheduleScreen() {
               resizeMode="contain"
             />
             <Pressable
-              onPress={handlePickImage}
+              onPress={pickImage}
               style={({ pressed }) => [
                 styles.replaceBtn,
                 { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
@@ -110,7 +206,7 @@ export default function ScheduleScreen() {
           </View>
         ) : (
           <Pressable
-            onPress={handlePickImage}
+            onPress={pickImage}
             style={({ pressed }) => [
               styles.emptyState,
               { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
@@ -154,9 +250,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  headerCenter: {
-    flex: 1,
-  },
+  headerCenter: { flex: 1 },
   headerTitle: {
     fontSize: 16,
     fontFamily: "Inter_700Bold",
@@ -181,9 +275,58 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     gap: 16,
   },
-  imageWrapper: {
-    gap: 12,
+  // Preview state
+  previewImage: {
+    width: "100%",
+    height: undefined,
+    aspectRatio: 0.75,
+    borderRadius: 14,
   },
+  previewBanner: {
+    flexDirection: "row",
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    alignItems: "flex-start",
+  },
+  previewBannerText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+    flex: 1,
+  },
+  previewActions: {
+    gap: 10,
+  },
+  retakeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  retakeBtnText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  publishBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 16,
+  },
+  publishBtnText: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.3,
+  },
+  // Normal state
+  imageWrapper: { gap: 12 },
   scheduleImage: {
     width: "100%",
     height: undefined,
