@@ -2,9 +2,10 @@ import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Platform,
   Pressable,
@@ -28,6 +29,20 @@ export default function ScheduleScreen() {
   // pendingImage = picked but not yet published
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+
+  // Success toast
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    Animated.sequence([
+      Animated.timing(toastOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.delay(2400),
+      Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
+    toastTimer.current = setTimeout(() => { toastOpacity.setValue(0); }, 3000);
+  };
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
 
@@ -53,6 +68,7 @@ export default function ScheduleScreen() {
     await uploadSchedule(pendingImage);
     setPublishing(false);
     setPendingImage(null);
+    showToast();
   };
 
   const handleRetake = async () => {
@@ -253,6 +269,30 @@ export default function ScheduleScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Success toast */}
+      <Animated.View
+        style={[
+          styles.toast,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            bottom: Platform.OS === "web" ? 32 : insets.bottom + 16,
+            opacity: toastOpacity,
+          },
+        ]}
+        pointerEvents="none"
+      >
+        <View style={[styles.toastIcon, { backgroundColor: "#22c55e22" }]}>
+          <Feather name="check-circle" size={16} color="#22c55e" />
+        </View>
+        <View style={styles.toastText}>
+          <Text style={[styles.toastTitle, { color: colors.foreground }]}>Published!</Text>
+          <Text style={[styles.toastSub, { color: colors.mutedForeground }]}>
+            Schedule is now visible to all members
+          </Text>
+        </View>
+      </Animated.View>
     </View>
   );
 }
@@ -419,5 +459,33 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     lineHeight: 18,
     flex: 1,
+  },
+  toast: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  toastIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toastText: { flex: 1 },
+  toastTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+  },
+  toastSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
   },
 });
