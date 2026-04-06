@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { loadJson, saveJson } from "../persistence.js";
 
 interface UploadedImage {
   id: string;
@@ -7,14 +8,14 @@ interface UploadedImage {
   uploadedBy?: string;
 }
 
-const router: IRouter = Router();
+type ScoringStore = Record<string, UploadedImage[]>;
 
-const scoringStore = new Map<string, UploadedImage[]>();
+const router: IRouter = Router();
+const scoringStore: ScoringStore = loadJson<ScoringStore>("scoring.json", {});
 
 router.get("/scoring/:competitionId", (req, res) => {
   const { competitionId } = req.params;
-  const images = scoringStore.get(competitionId) ?? [];
-  res.json({ images });
+  res.json({ images: scoringStore[competitionId] ?? [] });
 });
 
 router.post("/scoring/:competitionId", (req, res) => {
@@ -32,15 +33,17 @@ router.post("/scoring/:competitionId", (req, res) => {
     uploadedAt: new Date().toISOString(),
     uploadedBy,
   };
-  const existing = scoringStore.get(competitionId) ?? [];
-  scoringStore.set(competitionId, [...existing, entry]);
+  scoringStore[competitionId] = [...(scoringStore[competitionId] ?? []), entry];
+  saveJson("scoring.json", scoringStore);
   res.json({ ok: true, id: entry.id });
 });
 
 router.delete("/scoring/:competitionId/:imageId", (req, res) => {
   const { competitionId, imageId } = req.params;
-  const existing = scoringStore.get(competitionId) ?? [];
-  scoringStore.set(competitionId, existing.filter((e) => e.id !== imageId));
+  scoringStore[competitionId] = (scoringStore[competitionId] ?? []).filter(
+    (e) => e.id !== imageId
+  );
+  saveJson("scoring.json", scoringStore);
   res.json({ ok: true });
 });
 

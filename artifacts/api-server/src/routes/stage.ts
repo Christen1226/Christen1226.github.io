@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { loadJson, saveJson } from "../persistence.js";
 
 const router: IRouter = Router();
 
@@ -8,25 +9,25 @@ interface StageState {
   reporterCount: number;
 }
 
-// In-memory store: competitionId -> stage state
-const stageStore = new Map<string, StageState>();
+type StageStore = Record<string, StageState>;
+
+const stageStore: StageStore = loadJson<StageStore>("stage.json", {});
 
 function getOrInit(competitionId: string): StageState {
-  if (!stageStore.has(competitionId)) {
-    stageStore.set(competitionId, {
+  if (!stageStore[competitionId]) {
+    stageStore[competitionId] = {
       currentNumber: 0,
       lastReportedAt: null,
       reporterCount: 0,
-    });
+    };
   }
-  return stageStore.get(competitionId)!;
+  return stageStore[competitionId];
 }
 
 // GET /api/stage/:competitionId — fetch current stage state
 router.get("/stage/:competitionId", (req, res) => {
   const { competitionId } = req.params;
-  const state = getOrInit(competitionId);
-  res.json(state);
+  res.json(getOrInit(competitionId));
 });
 
 // POST /api/stage/:competitionId — report a new stage number
@@ -45,7 +46,8 @@ router.post("/stage/:competitionId", (req, res) => {
     lastReportedAt: new Date().toISOString(),
     reporterCount: prev.reporterCount + 1,
   };
-  stageStore.set(competitionId, updated);
+  stageStore[competitionId] = updated;
+  saveJson("stage.json", stageStore);
   res.json(updated);
 });
 
@@ -57,7 +59,8 @@ router.post("/stage/:competitionId/reset", (req, res) => {
     lastReportedAt: null,
     reporterCount: 0,
   };
-  stageStore.set(competitionId, fresh);
+  stageStore[competitionId] = fresh;
+  saveJson("stage.json", stageStore);
   res.json(fresh);
 });
 

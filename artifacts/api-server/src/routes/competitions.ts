@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
-import { join } from "path";
+import { loadJson, saveJson } from "../persistence.js";
 
 export interface ApiCompetition {
   id: string;
@@ -13,35 +12,15 @@ export interface ApiCompetition {
   memberCount: number;
 }
 
-const DATA_DIR = join(process.cwd(), ".data");
-const COMPETITIONS_FILE = join(DATA_DIR, "competitions.json");
-
-function ensureDataDir() {
-  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-}
-
-function loadStore(): Map<string, ApiCompetition> {
-  try {
-    ensureDataDir();
-    if (!existsSync(COMPETITIONS_FILE)) return new Map();
-    const raw = readFileSync(COMPETITIONS_FILE, "utf-8");
-    const arr: ApiCompetition[] = JSON.parse(raw);
-    return new Map(arr.map((c) => [c.id, c]));
-  } catch {
-    return new Map();
-  }
-}
-
-function saveStore(store: Map<string, ApiCompetition>) {
-  try {
-    ensureDataDir();
-    writeFileSync(COMPETITIONS_FILE, JSON.stringify(Array.from(store.values()), null, 2));
-  } catch {}
-}
-
-const competitionsStore = loadStore();
-
 const router: IRouter = Router();
+
+const competitionsStore = new Map<string, ApiCompetition>(
+  (loadJson<ApiCompetition[]>("competitions.json", [])).map((c) => [c.id, c])
+);
+
+function persist() {
+  saveJson("competitions.json", Array.from(competitionsStore.values()));
+}
 
 // GET /api/competitions — returns all user-created competitions
 router.get("/competitions", (_req, res) => {
@@ -56,7 +35,7 @@ router.post("/competitions", (req, res) => {
     return;
   }
   competitionsStore.set(comp.id, comp);
-  saveStore(competitionsStore);
+  persist();
   res.json({ ok: true, competition: comp });
 });
 
@@ -70,7 +49,7 @@ router.patch("/competitions/:id", (req, res) => {
   }
   const updated = { ...existing, ...req.body } as ApiCompetition;
   competitionsStore.set(id, updated);
-  saveStore(competitionsStore);
+  persist();
   res.json({ ok: true, competition: updated });
 });
 
@@ -82,7 +61,7 @@ router.delete("/competitions/:id", (req, res) => {
     return;
   }
   competitionsStore.delete(id);
-  saveStore(competitionsStore);
+  persist();
   res.json({ ok: true });
 });
 

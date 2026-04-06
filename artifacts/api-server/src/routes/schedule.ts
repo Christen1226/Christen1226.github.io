@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { loadJson, saveJson } from "../persistence.js";
 
 interface UploadedImage {
   id: string;
@@ -7,14 +8,14 @@ interface UploadedImage {
   uploadedBy?: string;
 }
 
-const router: IRouter = Router();
+type ScheduleStore = Record<string, UploadedImage[]>;
 
-const scheduleStore = new Map<string, UploadedImage[]>();
+const router: IRouter = Router();
+const scheduleStore: ScheduleStore = loadJson<ScheduleStore>("schedule.json", {});
 
 router.get("/schedule/:competitionId", (req, res) => {
   const { competitionId } = req.params;
-  const images = scheduleStore.get(competitionId) ?? [];
-  res.json({ images });
+  res.json({ images: scheduleStore[competitionId] ?? [] });
 });
 
 router.post("/schedule/:competitionId", (req, res) => {
@@ -32,15 +33,17 @@ router.post("/schedule/:competitionId", (req, res) => {
     uploadedAt: new Date().toISOString(),
     uploadedBy,
   };
-  const existing = scheduleStore.get(competitionId) ?? [];
-  scheduleStore.set(competitionId, [...existing, entry]);
+  scheduleStore[competitionId] = [...(scheduleStore[competitionId] ?? []), entry];
+  saveJson("schedule.json", scheduleStore);
   res.json({ ok: true, id: entry.id });
 });
 
 router.delete("/schedule/:competitionId/:imageId", (req, res) => {
   const { competitionId, imageId } = req.params;
-  const existing = scheduleStore.get(competitionId) ?? [];
-  scheduleStore.set(competitionId, existing.filter((e) => e.id !== imageId));
+  scheduleStore[competitionId] = (scheduleStore[competitionId] ?? []).filter(
+    (e) => e.id !== imageId
+  );
+  saveJson("schedule.json", scheduleStore);
   res.json({ ok: true });
 });
 

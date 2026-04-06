@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { loadJson, saveJson } from "../persistence.js";
 
 export interface ApiReport {
   id: string;
@@ -11,7 +12,10 @@ export interface ApiReport {
 
 const router: IRouter = Router();
 
-// Seed c1 with mock community alerts so every device sees the same starting data
+type ReportsStore = Record<string, ApiReport[]>;
+
+// Seed mock community alerts for c1 so every device sees starting data,
+// but only if c1 has no persisted data yet.
 const now = Date.now();
 const MOCK_C1: ApiReport[] = [
   {
@@ -40,10 +44,12 @@ const MOCK_C1: ApiReport[] = [
   },
 ];
 
-const reportsStore = new Map<string, ApiReport[]>([["c1", MOCK_C1]]);
+const persisted = loadJson<ReportsStore>("reports.json", {});
+if (!persisted["c1"]) persisted["c1"] = MOCK_C1;
+const reportsStore: ReportsStore = persisted;
 
 function getReports(compId: string): ApiReport[] {
-  return reportsStore.get(compId) ?? [];
+  return reportsStore[compId] ?? [];
 }
 
 // GET /api/reports/:competitionId
@@ -74,27 +80,28 @@ router.post("/reports/:competitionId", (req, res) => {
     reporter: reporter || "Anonymous",
   };
 
-  const existing = getReports(competitionId);
-  reportsStore.set(competitionId, [report, ...existing]);
+  reportsStore[competitionId] = [report, ...getReports(competitionId)];
+  saveJson("reports.json", reportsStore);
   res.json({ ok: true, report });
 });
 
 // POST /api/reports/:competitionId/:reportId/confirm — upvote an alert
 router.post("/reports/:competitionId/:reportId/confirm", (req, res) => {
   const { competitionId, reportId } = req.params;
-  const existing = getReports(competitionId);
-  const updated = existing.map((r) =>
+  reportsStore[competitionId] = getReports(competitionId).map((r) =>
     r.id === reportId ? { ...r, confirmations: r.confirmations + 1 } : r
   );
-  reportsStore.set(competitionId, updated);
+  saveJson("reports.json", reportsStore);
   res.json({ ok: true });
 });
 
 // DELETE /api/reports/:competitionId/:reportId
 router.delete("/reports/:competitionId/:reportId", (req, res) => {
   const { competitionId, reportId } = req.params;
-  const existing = getReports(competitionId);
-  reportsStore.set(competitionId, existing.filter((r) => r.id !== reportId));
+  reportsStore[competitionId] = getReports(competitionId).filter(
+    (r) => r.id !== reportId
+  );
+  saveJson("reports.json", reportsStore);
   res.json({ ok: true });
 });
 
