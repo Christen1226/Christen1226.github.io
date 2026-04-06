@@ -1,7 +1,11 @@
 import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -134,9 +138,11 @@ function FormField({
 export default function CompetitionScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, createCompetition, userName, refreshCompetitions } =
+  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, createCompetition, userName, refreshCompetitions, scheduleImage, uploadSchedule } =
     useApp();
+  const router = useRouter();
 
+  const [uploadingSchedule, setUploadingSchedule] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -200,6 +206,24 @@ export default function CompetitionScreen() {
   const handleJoin = (comp: Competition) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     joinCompetition(comp.id);
+  };
+
+  const handlePickSchedule = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: true,
+      quality: 0.8,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const mime = asset.mimeType ?? "image/jpeg";
+    const uri = `data:${mime};base64,${asset.base64}`;
+    setUploadingSchedule(true);
+    await uploadSchedule(uri);
+    setUploadingSchedule(false);
   };
 
   const canCreate = newName.trim().length > 0 && newLocation.trim().length > 0 && newStartDate.trim().length > 0;
@@ -272,6 +296,68 @@ export default function CompetitionScreen() {
               <Feather name="send" size={14} color={colors.foreground} />
               <Text style={[styles.quickReportText, { color: colors.foreground }]}>Report</Text>
             </Pressable>
+          </View>
+        )}
+
+        {/* Schedule section for active competition */}
+        {competition && (
+          <View style={[styles.scheduleSection, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.scheduleSectionHeader}>
+              <MaterialCommunityIcons name="calendar-clock" size={16} color={colors.violet} />
+              <Text style={[styles.scheduleSectionTitle, { color: colors.foreground }]}>Schedule</Text>
+              <Pressable
+                onPress={() => router.push("/schedule")}
+                style={({ pressed }) => [styles.scheduleViewBtn, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <Text style={[styles.scheduleViewBtnText, { color: colors.violet }]}>View full</Text>
+                <Feather name="chevron-right" size={13} color={colors.violet} />
+              </Pressable>
+            </View>
+
+            {scheduleImage ? (
+              <Pressable onPress={() => router.push("/schedule")}>
+                <Image
+                  source={{ uri: scheduleImage }}
+                  style={styles.scheduleThumb}
+                  resizeMode="cover"
+                />
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={handlePickSchedule}
+                style={({ pressed }) => [
+                  styles.scheduleUploadArea,
+                  { borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Feather name="upload" size={18} color={colors.mutedForeground} />
+                <Text style={[styles.scheduleUploadText, { color: colors.mutedForeground }]}>
+                  Upload schedule photo
+                </Text>
+                <Text style={[styles.scheduleUploadHint, { color: colors.mutedForeground }]}>
+                  Visible to all members
+                </Text>
+              </Pressable>
+            )}
+
+            {scheduleImage && (
+              <Pressable
+                onPress={handlePickSchedule}
+                style={({ pressed }) => [
+                  styles.scheduleReplaceRow,
+                  { opacity: pressed ? 0.6 : 1 },
+                ]}
+              >
+                {uploadingSchedule ? (
+                  <ActivityIndicator size="small" color={colors.mutedForeground} />
+                ) : (
+                  <Feather name="refresh-cw" size={12} color={colors.mutedForeground} />
+                )}
+                <Text style={[styles.scheduleReplaceText, { color: colors.mutedForeground }]}>
+                  {uploadingSchedule ? "Uploading…" : "Replace schedule"}
+                </Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -691,6 +777,64 @@ const styles = StyleSheet.create({
   emptyCreateText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+  },
+
+  scheduleSection: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+    marginBottom: 4,
+  },
+  scheduleSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  scheduleSectionTitle: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    flex: 1,
+  },
+  scheduleViewBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  scheduleViewBtnText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  scheduleThumb: {
+    width: "100%",
+    height: 140,
+    borderRadius: 10,
+  },
+  scheduleUploadArea: {
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: 12,
+    paddingVertical: 20,
+    alignItems: "center",
+    gap: 6,
+  },
+  scheduleUploadText: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+  },
+  scheduleUploadHint: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
+  scheduleReplaceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    justifyContent: "center",
+  },
+  scheduleReplaceText: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
   },
 
   modalOverlay: {

@@ -21,7 +21,7 @@ export function ResourcesWidget() {
             styles.resourceBtn,
             { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
           ]}
-          onPress={() => router.push("/competition")}
+          onPress={() => router.push("/schedule")}
         >
           <MaterialCommunityIcons name="calendar-clock" size={20} color={colors.violet} />
           <Text style={[styles.resourceLabel, { color: colors.foreground }]}>Schedule</Text>

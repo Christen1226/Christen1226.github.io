@@ -40,6 +40,8 @@ interface AppContextValue {
   userInitials: string;
   profileImage: string | null;
   isLive: boolean;
+  scheduleImage: string | null;
+  uploadSchedule: (base64Uri: string) => Promise<void>;
   refreshStage: () => Promise<void>;
   refreshCompetitions: () => Promise<void>;
   submitCurrentNumber: (num: number) => void;
@@ -183,6 +185,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [userName, setUserName] = useState("");
   const [profileImage, setProfileImageState] = useState<string | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const [scheduleImage, setScheduleImage] = useState<string | null>(null);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const competitionRef = useRef<Competition | null>(competition);
@@ -248,6 +251,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setReports([]);
       }
     }).catch(() => setReports([]));
+  }, [competition?.id]);
+
+  // Load schedule for active competition (local cache first, then API)
+  useEffect(() => {
+    if (!competition) {
+      setScheduleImage(null);
+      return;
+    }
+    const compId = competition.id;
+    const localKey = `schedule_${compId}`;
+    // Show local cache immediately, then try API in background
+    AsyncStorage.getItem(localKey).then((cached) => {
+      if (cached) setScheduleImage(cached);
+    }).catch(() => {});
+    // Fetch from API (may override local cache if newer)
+    fetch(`${getApiBase()}/api/schedule/${compId}`)
+      .then((r) => r.json())
+      .then((data: { image: string | null }) => {
+        if (data.image) {
+          setScheduleImage(data.image);
+          AsyncStorage.setItem(localKey, data.image).catch(() => {});
+        }
+      })
+      .catch(() => {});
   }, [competition?.id]);
 
   // Polling: start/stop when competition changes
@@ -328,6 +355,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
   }, [saveReportsForComp]);
+
+  const uploadSchedule = useCallback(async (base64Uri: string) => {
+    const compId = competitionRef.current?.id;
+    if (!compId) return;
+    setScheduleImage(base64Uri);
+    AsyncStorage.setItem(`schedule_${compId}`, base64Uri).catch(() => {});
+    try {
+      await fetch(`${getApiBase()}/api/schedule/${compId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64Uri }),
+      });
+    } catch {}
+  }, []);
 
   const refreshStage = useCallback(async () => {
     const comp = competitionRef.current;
@@ -489,6 +530,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         userInitials,
         profileImage,
         isLive,
+        scheduleImage,
+        uploadSchedule,
         refreshStage,
         refreshCompetitions,
         submitCurrentNumber,
