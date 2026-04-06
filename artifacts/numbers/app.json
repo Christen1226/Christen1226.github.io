@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Numbers",
-    "slug": "numbers",
+    "name": "Number",
+    "slug": "number",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "numbers",
+    "scheme": "number",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
@@ -14,10 +14,12 @@
       "backgroundColor": "#0E0A16"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.number.app"
     },
     "android": {
-      "backgroundColor": "#0E0A16"
+      "backgroundColor": "#0E0A16",
+      "package": "com.number.app"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
