@@ -258,6 +258,7 @@ export default function CompetitionScreen() {
     setPendingSchedule(null);
   };
 
+  const isJoined = !!competition && joinedCompetitionIds.includes(competition.id);
   const canCreate = newName.trim().length > 0 && newLocation.trim().length > 0 && newStartDate.trim().length > 0;
 
   return (
@@ -354,7 +355,7 @@ export default function CompetitionScreen() {
                   resizeMode="cover"
                 />
               </Pressable>
-            ) : (
+            ) : isJoined ? (
               <Pressable
                 onPress={handlePickSchedule}
                 style={({ pressed }) => [
@@ -370,9 +371,24 @@ export default function CompetitionScreen() {
                   Visible to all members
                 </Text>
               </Pressable>
+            ) : (
+              <View
+                style={[
+                  styles.scheduleUploadArea,
+                  { borderColor: colors.border, opacity: 0.5 },
+                ]}
+              >
+                <Feather name="lock" size={18} color={colors.mutedForeground} />
+                <Text style={[styles.scheduleUploadText, { color: colors.mutedForeground }]}>
+                  Members only
+                </Text>
+                <Text style={[styles.scheduleUploadHint, { color: colors.mutedForeground }]}>
+                  Join to upload the schedule
+                </Text>
+              </View>
             )}
 
-            {scheduleImage && (
+            {scheduleImage && isJoined && (
               <Pressable
                 onPress={handlePickSchedule}
                 style={({ pressed }) => [

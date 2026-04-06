@@ -22,7 +22,8 @@ export default function ScheduleScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { competition, scheduleImage, uploadSchedule } = useApp();
+  const { competition, scheduleImage, uploadSchedule, joinedCompetitionIds } = useApp();
+  const isJoined = !!competition && joinedCompetitionIds.includes(competition.id);
 
   // pendingImage = picked but not yet published
   const [pendingImage, setPendingImage] = useState<string | null>(null);
@@ -165,15 +166,18 @@ export default function ScheduleScreen() {
             </Text>
           )}
         </View>
-        <Pressable
-          onPress={pickImage}
-          style={({ pressed }) => [
-            styles.uploadBtn,
-            { backgroundColor: colors.violet, opacity: pressed ? 0.75 : 1 },
-          ]}
-        >
-          <Feather name="upload" size={16} color={colors.foreground} />
-        </Pressable>
+        {isJoined && (
+          <Pressable
+            onPress={pickImage}
+            style={({ pressed }) => [
+              styles.uploadBtn,
+              { backgroundColor: colors.violet, opacity: pressed ? 0.75 : 1 },
+            ]}
+          >
+            <Feather name="upload" size={16} color={colors.foreground} />
+          </Pressable>
+        )}
+        {!isJoined && <View style={styles.uploadBtn} />}
       </View>
 
       <ScrollView
@@ -191,20 +195,22 @@ export default function ScheduleScreen() {
               style={styles.scheduleImage}
               resizeMode="contain"
             />
-            <Pressable
-              onPress={pickImage}
-              style={({ pressed }) => [
-                styles.replaceBtn,
-                { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Feather name="refresh-cw" size={14} color={colors.mutedForeground} />
-              <Text style={[styles.replaceBtnText, { color: colors.mutedForeground }]}>
-                Replace schedule
-              </Text>
-            </Pressable>
+            {isJoined && (
+              <Pressable
+                onPress={pickImage}
+                style={({ pressed }) => [
+                  styles.replaceBtn,
+                  { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Feather name="refresh-cw" size={14} color={colors.mutedForeground} />
+                <Text style={[styles.replaceBtnText, { color: colors.mutedForeground }]}>
+                  Replace schedule
+                </Text>
+              </Pressable>
+            )}
           </View>
-        ) : (
+        ) : isJoined ? (
           <Pressable
             onPress={pickImage}
             style={({ pressed }) => [
@@ -222,12 +228,28 @@ export default function ScheduleScreen() {
               <Text style={[styles.uploadPillText, { color: colors.foreground }]}>Upload Schedule</Text>
             </View>
           </Pressable>
+        ) : (
+          <View
+            style={[
+              styles.emptyState,
+              styles.emptyStateReadOnly,
+              { borderColor: colors.border },
+            ]}
+          >
+            <MaterialCommunityIcons name="calendar-clock" size={48} color={colors.mutedForeground} />
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No schedule yet</Text>
+            <Text style={[styles.emptyHint, { color: colors.mutedForeground }]}>
+              Join this competition to upload or view the schedule
+            </Text>
+          </View>
         )}
 
         <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Feather name="info" size={14} color={colors.mutedForeground} />
           <Text style={[styles.infoText, { color: colors.mutedForeground }]}>
-            Uploaded schedules are shared with everyone in this competition. You can also upload from the Competition tab.
+            {isJoined
+              ? "Uploaded schedules are shared with everyone in this competition. You can also upload from the Competition tab."
+              : "Schedule uploads are available to members of this competition only."}
           </Text>
         </View>
       </ScrollView>
@@ -355,6 +377,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     marginTop: 8,
+  },
+  emptyStateReadOnly: {
+    opacity: 0.6,
   },
   emptyTitle: {
     fontSize: 18,
