@@ -266,10 +266,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Load schedule for active competition (local cache first, then API)
   useEffect(() => {
-    if (!competition) {
-      setScheduleImage(null);
-      return;
-    }
+    setScheduleImage(null); // always clear before loading the new competition's schedule
+    if (!competition) return;
     const compId = competition.id;
     const localKey = `schedule_${compId}`;
     // Show local cache immediately, then try API in background
