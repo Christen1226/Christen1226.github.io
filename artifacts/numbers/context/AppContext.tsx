@@ -76,32 +76,6 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-const MOCK_REPORTS: CommunityReport[] = [
-  {
-    id: "r1",
-    type: "delay",
-    message: "Judge break in progress, running about 10 min behind",
-    confirmations: 8,
-    timestamp: new Date(Date.now() - 12 * 60000),
-    reporter: "Sarah M.",
-  },
-  {
-    id: "r2",
-    type: "out-of-order",
-    message: "Numbers 47 and 48 swapped — 48 went before 47",
-    confirmations: 3,
-    timestamp: new Date(Date.now() - 28 * 60000),
-    reporter: "Jen T.",
-  },
-  {
-    id: "r3",
-    type: "technical",
-    message: "Sound issue resolved, back on track now",
-    confirmations: 5,
-    timestamp: new Date(Date.now() - 45 * 60000),
-    reporter: "Mike R.",
-  },
-];
 
 const MOCK_COMPETITIONS: Competition[] = [
   {
@@ -196,6 +170,93 @@ async function resetStage(competitionId: string): Promise<void> {
   } catch {}
 }
 
+// ---------- Reports API helpers ----------
+
+interface ApiReport {
+  id: string;
+  type: CommunityReport["type"];
+  message: string;
+  confirmations: number;
+  timestamp: string;
+  reporter: string;
+}
+
+function apiReportToLocal(r: ApiReport): CommunityReport {
+  return { ...r, timestamp: new Date(r.timestamp) };
+}
+
+async function fetchReports(competitionId: string): Promise<CommunityReport[] | null> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/reports/${competitionId}`);
+    if (!res.ok) return null;
+    const data = await res.json() as { reports: ApiReport[] };
+    return data.reports.map(apiReportToLocal);
+  } catch {
+    return null;
+  }
+}
+
+async function postReport(
+  competitionId: string,
+  type: CommunityReport["type"],
+  message: string,
+  reporter: string
+): Promise<CommunityReport | null> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/reports/${competitionId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, message, reporter }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean; report: ApiReport };
+    return apiReportToLocal(data.report);
+  } catch {
+    return null;
+  }
+}
+
+async function confirmReportApi(competitionId: string, reportId: string): Promise<void> {
+  try {
+    await fetch(`${getApiBase()}/api/reports/${competitionId}/${reportId}/confirm`, {
+      method: "POST",
+    });
+  } catch {}
+}
+
+// ---------- Competitions API helpers ----------
+
+async function fetchApiCompetitions(): Promise<Competition[]> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/competitions`);
+    if (!res.ok) return [];
+    const data = await res.json() as { competitions: Competition[] };
+    return data.competitions ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function postApiCompetition(comp: Competition): Promise<void> {
+  try {
+    await fetch(`${getApiBase()}/api/competitions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(comp),
+    });
+  } catch {}
+}
+
+async function patchApiCompetition(id: string, startDate: string, endDate: string): Promise<void> {
+  try {
+    await fetch(`${getApiBase()}/api/competitions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ startDate, endDate }),
+    });
+  } catch {}
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentNumber, setCurrentNumber] = useState(0);
   const [lastReportedAt, setLastReportedAt] = useState<Date | null>(null);
@@ -221,12 +282,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const load = async () => {
       try {
+        // Fetch user-created competitions from API and merge with mock seed data
+        const apiComps = await fetchApiCompetitions();
+        const apiIds = new Set(apiComps.map((c) => c.id));
+        const merged = [
+          ...MOCK_COMPETITIONS,
+          ...apiComps.filter((c) => !MOCK_COMPETITIONS.find((m) => m.id === c.id)),
+        ];
+        // Also include any locally-cached competitions the API may not have (offline created)
         const compsJson = await AsyncStorage.getItem("competitions");
-        let merged: Competition[] = MOCK_COMPETITIONS;
         if (compsJson) {
           const saved: Competition[] = JSON.parse(compsJson);
-          const userCreated = saved.filter((s) => !MOCK_COMPETITIONS.find((m) => m.id === s.id));
-          merged = [...MOCK_COMPETITIONS, ...userCreated];
+          for (const s of saved) {
+            if (!MOCK_COMPETITIONS.find((m) => m.id === s.id) && !apiIds.has(s.id)) {
+              merged.push(s);
+            }
+          }
         }
         // Remove competitions expired more than 5 days ago
         const live = merged.filter((c) => !isExpiredComp(c));
@@ -272,26 +343,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .catch(() => setDancers([]));
   }, [competition?.id]);
 
-  // Load reports for the active competition whenever it changes
-  // Seed mock reports for c1 on first visit (single device only)
+  // Load reports for the active competition from the API whenever the competition changes
   useEffect(() => {
     if (!competition) {
       setReports([]);
       return;
     }
-    const key = `reports_${competition.id}`;
-    AsyncStorage.getItem(key).then((json) => {
-      if (json) {
-        const parsed = JSON.parse(json) as Array<CommunityReport & { timestamp: string }>;
-        setReports(parsed.map((r) => ({ ...r, timestamp: new Date(r.timestamp) })));
-      } else if (competition.id === "c1") {
-        // Seed mock alerts for Starbound 2026 on first open
-        setReports(MOCK_REPORTS);
-        AsyncStorage.setItem(key, JSON.stringify(MOCK_REPORTS)).catch(() => {});
-      } else {
-        setReports([]);
-      }
-    }).catch(() => setReports([]));
+    const compId = competition.id;
+    fetchReports(compId).then((fetched) => {
+      if (fetched !== null) setReports(fetched);
+    });
   }, [competition?.id]);
 
   // Load schedule images for active competition (local cache first, then API)
@@ -348,15 +409,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!competition) return;
 
     const poll = async () => {
-      const data = await fetchStage(competition.id);
-      if (data) {
+      const [stageData, reportData] = await Promise.all([
+        fetchStage(competition.id),
+        fetchReports(competition.id),
+      ]);
+      if (stageData) {
         setIsLive(true);
-        setCurrentNumber(data.currentNumber);
-        setReporterCount(data.reporterCount);
-        if (data.lastReportedAt) setLastReportedAt(new Date(data.lastReportedAt));
+        setCurrentNumber(stageData.currentNumber);
+        setReporterCount(stageData.reporterCount);
+        if (stageData.lastReportedAt) setLastReportedAt(new Date(stageData.lastReportedAt));
       } else {
         setIsLive(false);
       }
+      if (reportData !== null) setReports(reportData);
     };
 
     // Fetch immediately on mount/competition switch
@@ -387,35 +452,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (comp) postStage(comp.id, num);
   }, []);
 
-  const saveReportsForComp = useCallback((updated: CommunityReport[]) => {
+  const submitReport = useCallback((type: CommunityReport["type"], message: string) => {
     const compId = competitionRef.current?.id;
     if (!compId) return;
-    AsyncStorage.setItem(`reports_${compId}`, JSON.stringify(updated)).catch(() => {});
-  }, []);
-
-  const submitReport = useCallback((type: CommunityReport["type"], message: string) => {
-    const newReport: CommunityReport = {
-      id: generateId(),
+    // Optimistic update with a temp local entry; API response replaces it
+    const tempId = "local_" + generateId();
+    const optimistic: CommunityReport = {
+      id: tempId,
       type,
       message,
       confirmations: 1,
       timestamp: new Date(),
       reporter: userName || "Anonymous",
     };
-    setReports((prev) => {
-      const updated = [newReport, ...prev];
-      saveReportsForComp(updated);
-      return updated;
+    setReports((prev) => [optimistic, ...prev]);
+    postReport(compId, type, message, userName || "Anonymous").then((saved) => {
+      if (saved) {
+        setReports((prev) => prev.map((r) => (r.id === tempId ? saved : r)));
+      }
     });
-  }, [userName, saveReportsForComp]);
+  }, [userName]);
 
   const confirmReport = useCallback((id: string) => {
-    setReports((prev) => {
-      const updated = prev.map((r) => (r.id === id ? { ...r, confirmations: r.confirmations + 1 } : r));
-      saveReportsForComp(updated);
-      return updated;
-    });
-  }, [saveReportsForComp]);
+    const compId = competitionRef.current?.id;
+    // Optimistic local increment; server is updated in the background
+    setReports((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, confirmations: r.confirmations + 1 } : r))
+    );
+    if (compId) confirmReportApi(compId, id);
+  }, []);
 
   const uploadSchedule = useCallback(async (base64Uri: string) => {
     const compId = competitionRef.current?.id;
@@ -525,16 +590,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshCompetitions = useCallback(async () => {
     try {
+      const apiComps = await fetchApiCompetitions();
+      const apiIds = new Set(apiComps.map((c) => c.id));
+      const merged = [
+        ...MOCK_COMPETITIONS,
+        ...apiComps.filter((c) => !MOCK_COMPETITIONS.find((m) => m.id === c.id)),
+      ];
+      // Also keep any offline-created competitions not yet on server
       const compsJson = await AsyncStorage.getItem("competitions");
-      let merged: Competition[] = MOCK_COMPETITIONS;
       if (compsJson) {
         const saved: Competition[] = JSON.parse(compsJson);
-        const userCreated = saved.filter((s) => !MOCK_COMPETITIONS.find((m) => m.id === s.id));
-        merged = [...MOCK_COMPETITIONS, ...userCreated];
+        for (const s of saved) {
+          if (!MOCK_COMPETITIONS.find((m) => m.id === s.id) && !apiIds.has(s.id)) {
+            merged.push(s);
+          }
+        }
       }
       const live = merged.filter((c) => !isExpiredComp(c));
       setAllCompetitions(live);
-      // If the active competition has since expired, switch to another
       setCompetitionState((cur) => {
         if (cur && isExpiredComp(cur)) {
           const fallback = live[0] ?? null;
@@ -694,6 +767,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addToJoined(newComp.id);
       setCompetitionState(newComp);
       AsyncStorage.setItem("activeCompetition", JSON.stringify(newComp)).catch(() => {});
+      // Persist to shared API so all users can discover this competition
+      postApiCompetition(newComp);
     },
     [userName, addToJoined]
   );
@@ -713,6 +788,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         return updated;
       });
+      // Sync date change to API for all users
+      patchApiCompetition(id, startDate, endDate);
     },
     []
   );
