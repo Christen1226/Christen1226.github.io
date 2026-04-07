@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "8a7937a8-37fc-48af-a260-0cfe96694e31"
+      }
+    },
+    "android": {
+      "package": "com.christen1226.workspace"
+    },
+    "ios": {
+      "bundleIdentifier": "com.christen1226.workspace",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}
