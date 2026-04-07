@@ -301,7 +301,7 @@
 
   <section class="contact">
     <div class="section-label">Get in Touch</div>
-    <a class="contact-card" href="mailto:support@numberapp.com">
+    <a class="contact-card" href="mailto:numbercompapp@gmail.com">
       <div class="contact-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9B6FE8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
@@ -310,7 +310,7 @@
       </div>
       <div class="contact-text">
         <strong>Email Support</strong>
-        <span>support@numberapp.com · Response within 24 hrs</span>
+        <span>numbercompapp@gmail.com · Response within 24 hrs</span>
       </div>
       <div class="contact-arrow">→</div>
     </a>
@@ -321,20 +321,10 @@
     <div class="footer-links">
       <a href="#">Privacy Policy</a>
       <a href="#">Terms of Use</a>
-      <a href="mailto:support@numberapp.com">Contact</a>
+      <a href="mailto:numbercompapp@gmail.com">Contact</a>
     </div>
   </footer>
 
 </div>
 
-<script>
-  function toggle(btn) {
-    const item = btn.closest('.faq-item');
-    const isOpen = item.classList.contains('open');
-    document.querySelectorAll('.faq-item.open').forEach(el => el.classList.remove('open'));
-    if (!isOpen) item.classList.add('open');
-  }
-</script>
-
-</body>
-</html>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><scrip
