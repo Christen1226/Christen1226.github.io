@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.numberneverguessagain.app"
+      "bundleIdentifier": "com.numberneverguessagain.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "backgroundColor": "#0E0A16",
@@ -37,6 +40,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e8069bac-d5bf-46ca-ab57-f212395c9b32"
+      }
     }
   }
 }
