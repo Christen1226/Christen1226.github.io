@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NUMBER — Support</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg:       #0E0A16;
+    --surface:  #1A1225;
+    --violet:   #9B6FE8;
+    --lilac:    #B48EF0;
+    --lavender: #D2C3F6;
+    --muted:    #8B7BA8;
+    --white:    #F0ECF7;
+    --green:    #5DE88C;
+    --border:   rgba(210,195,246,0.12);
+    --card:     rgba(255,255,255,0.045);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--lavender);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── AMBIENT GLOWS ── */
+  .glow { position: fixed; pointer-events: none; z-index: 0; border-radius: 50%; }
+  .glow-1 { top: -120px; left: -100px; width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(155,111,232,0.18) 0%, transparent 70%); }
+  .glow-2 { top: 40vh; right: -120px; width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(180,142,240,0.10) 0%, transparent 70%); }
+  .glow-3 { bottom: 0; left: 10%; width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(93,93,232,0.08) 0%, transparent 70%); }
+
+  /* ── LAYOUT ── */
+  .wrap {
+    max-width: 680px; margin: 0 auto;
+    padding: 0 24px 80px;
+    position: relative; z-index: 1;
+  }
+
+  /* ── HEADER ── */
+  header {
+    padding: 52px 0 48px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 52px;
+  }
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px; letter-spacing: 10px;
+    color: var(--lavender); line-height: 1;
+  }
+  .tagline {
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--muted); font-style: italic; margin-top: 6px;
+  }
+  .badge {
+    margin-top: 16px;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(93,232,140,0.10);
+    border: 1px solid rgba(93,232,140,0.22);
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 11px; color: var(--green); font-weight: 500; letter-spacing: 0.5px;
+  }
+  .badge::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 8px var(--green);
+  }
+
+  /* ── SECTION LABEL ── */
+  .section-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px; letter-spacing: 4px; text-transform: uppercase;
+    color: var(--violet); margin-bottom: 20px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── INTRO ── */
+  .intro { margin-bottom: 48px; }
+  .intro p { font-size: 15px; line-height: 1.7; color: rgba(210,195,246,0.75); }
+  .intro p + p { margin-top: 12px; }
+
+  /* ── FEATURES GRID ── */
+  .features { margin-bottom: 48px; }
+  .features-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .feature-card {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 20px;
+    position: relative; overflow: hidden;
+  }
+  .feature-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);
+  }
+  .feature-icon { font-size: 22px; margin-bottom: 10px; display: block; }
+  .feature-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px; letter-spacing: 1.5px; color: var(--lavender); margin-bottom: 4px;
+  }
+  .feature-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  /* ── FAQ ── */
+  .faq { margin-bottom: 48px; }
+  .faq-item {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; overflow: hidden; margin-bottom: 10px;
+    transition: border-color 0.2s;
+  }
+  .faq-item:hover { border-color: rgba(155,111,232,0.25); }
+  .faq-q {
+    width: 100%; display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 22px; background: none; border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+    color: var(--white); text-align: left; gap: 12px;
+  }
+  .faq-arrow {
+    width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%;
+    background: rgba(155,111,232,0.15); border: 1px solid rgba(155,111,232,0.25);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .faq-arrow svg { transition: transform 0.25s; }
+  .faq-item.open .faq-arrow { background: rgba(155,111,232,0.3); }
+  .faq-item.open .faq-arrow svg { transform: rotate(180deg); }
+  .faq-a {
+    max-height: 0; overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+    font-size: 13px; line-height: 1.75; color: rgba(210,195,246,0.65);
+    padding: 0 22px;
+  }
+  .faq-item.open .faq-a { max-height: 300px; padding: 0 22px 18px; }
+
+  /* ── CONTACT ── */
+  .contact { margin-bottom: 48px; }
+  a.contact-card {
+    display: flex; align-items: center; gap: 20px;
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px; padding: 24px 28px;
+    text-decoration: none; position: relative; overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  a.contact-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+  }
+  a.contact-card:hover { border-color: rgba(155,111,232,0.35); transform: translateY(-2px); }
+  .contact-icon {
+    width: 48px; height: 48px; border-radius: 14px; flex-shrink: 0;
+    background: rgba(155,111,232,0.15); border: 1px solid rgba(155,111,232,0.25);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .contact-text strong { display: block; font-size: 14px; color: var(--white); margin-bottom: 3px; }
+  .contact-text span { font-size: 12px; color: var(--muted); }
+  .contact-arrow { margin-left: auto; color: var(--violet); font-size: 20px; flex-shrink: 0; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border); padding-top: 28px;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .footer-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px; letter-spacing: 5px; color: rgba(210,195,246,0.2);
+  }
+  .footer-links { display: flex; gap: 20px; }
+  .footer-links a {
+    font-size: 11px; color: var(--muted); text-decoration: none; letter-spacing: 0.5px;
+    transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--violet); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  header   { animation: fadeUp 0.5s ease both; }
+  .intro   { animation: fadeUp 0.5s ease both 0.10s; }
+  .features{ animation: fadeUp 0.5s ease both 0.18s; }
+  .faq     { animation: fadeUp 0.5s ease both 0.26s; }
+  .contact { animation: fadeUp 0.5s ease both 0.34s; }
+
+  @media (max-width: 480px) {
+    .features-grid { grid-template-columns: 1fr; }
+    .logo { font-size: 40px; }
+    footer { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div class="glow glow-1"></div>
+<div class="glow glow-2"></div>
+<div class="glow glow-3"></div>
+
+<div class="wrap">
+
+  <header>
+    <div class="logo">NUMBER</div>
+    <div class="tagline">Never guess again.</div>
+    <div class="badge">Support Center</div>
+  </header>
+
+  <section class="intro">
+    <div class="section-label">About</div>
+    <p>NUMBER is a real-time stage tracker for dance competition families. Know exactly what number is on stage, get community alerts about delays, and track your dancer's upcoming numbers — all in one place.</p>
+    <p>If you need help, have a question, or want to report an issue, you're in the right place. We typically respond within 24 hours.</p>
+  </section>
+
+  <section class="features">
+    <div class="section-label">What NUMBER Does</div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <span class="feature-icon">🎭</span>
+        <div class="feature-title">Live Stage Tracker</div>
+        <div class="feature-desc">See what number is on stage right now, updated by the community in real time.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🔔</span>
+        <div class="feature-title">Community Alerts</div>
+        <div class="feature-desc">Judge breaks, delays, order changes — reported and confirmed by other parents.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">💜</span>
+        <div class="feature-title">My Numbers</div>
+        <div class="feature-desc">Add your dancers and track exactly how far away each of their numbers is from stage.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🏆</span>
+        <div class="feature-title">Competitions</div>
+        <div class="feature-desc">Join your event and access schedules and scoring docs shared by your team.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq">
+    <div class="section-label">Common Questions</div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggle(this)">
+        How does the live stage number work?
+        <div class="faq-arrow"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9B6FE8" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </button>
+      <div class="faq-a">The current stage number is crowd-sourced — parents and team members in the venue submit what they see. The more people reporting, the more accurate it becomes. You can also submit a number yourself using the tracker on the Home screen.</div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggle(this)">
+        How do I add my dancer's numbers?
+        <div class="faq-arrow"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9B6FE8" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </button>
+      <div class="faq-a">Go to the My Numbers tab and tap + Add Dancer. Enter your dancer's name, then add each of their competition numbers. Once saved, you'll see exactly how far each number is from the current stage position.</div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggle(this)">
+        How do I join a competition?
+        <div class="faq-arrow"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9B6FE8" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </button>
+      <div class="faq-a">Tap the Competition tab and find your event in the list. Tap Join — you'll then have access to that competition's live tracker, community alerts, and any schedule or scoring documents that have been shared by your team.</div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggle(this)">
+        Can I report a delay or schedule change?
+        <div class="faq-arrow"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9B6FE8" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </button>
+      <div class="faq-a">Yes — on the Home screen tap the Report button next to Community Alerts. You can report judge breaks, numbers going out of order, technical delays, or any other update that would help other families plan their day.</div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggle(this)">
+        Is NUMBER free to use?
+        <div class="faq-arrow"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9B6FE8" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </button>
+      <div class="faq-a">Yes, NUMBER is free to download and use.</div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggle(this)">
+        How do I delete my account or data?
+        <div class="faq-arrow"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9B6FE8" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </button>
+      <div class="faq-a">To request account deletion or removal of your data, email us at the address below and we'll take care of it within 48 hours.</div>
+    </div>
+
+  </section>
+
+  <section class="contact">
+    <div class="section-label">Get in Touch</div>
+    <a class="contact-card" href="mailto:support@numberapp.com">
+      <div class="contact-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9B6FE8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+      </div>
+      <div class="contact-text">
+        <strong>Email Support</strong>
+        <span>support@numberapp.com · Response within 24 hrs</span>
+      </div>
+      <div class="contact-arrow">→</div>
+    </a>
+  </section>
+
+  <footer>
+    <div class="footer-logo">NUMBER</div>
+    <div class="footer-links">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Use</a>
+      <a href="mailto:support@numberapp.com">Contact</a>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  function toggle(btn) {
+    const item = btn.closest('.faq-item');
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(el => el.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  }
+</script>
+
+</body>
+</html>
