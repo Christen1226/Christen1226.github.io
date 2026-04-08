@@ -14,7 +14,7 @@
     "production": {
       "autoIncrement": true,
       "node": "18.0.0",
-      "pnpm": "10.26.1",
+      "pnpm": "9.0.0",
       "cache": {
         "disabled": true
       }
