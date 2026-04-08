@@ -17,6 +17,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.numberneverguessagain.app",
       "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "NUMBER uses your photo library to allow you to upload competition schedules and scoring sheets so your team can access them in the app.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -40,11 +41,6 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "extra": {
-      "eas": {
-        "projectId": "e8069bac-d5bf-46ca-ab57-f212395c9b32"
-      }
     }
   }
 }
