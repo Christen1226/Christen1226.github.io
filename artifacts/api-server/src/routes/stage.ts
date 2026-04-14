@@ -1,67 +1,31 @@
 import { Router, type IRouter } from "express";
-import { loadJson, saveJson } from "../persistence.js";
+import { supabase } from "../lib/supabase.js";
 
 const router: IRouter = Router();
 
-interface StageState {
-  currentNumber: number;
-  lastReportedAt: string | null;
-  reporterCount: number;
-}
-
-type StageStore = Record<string, StageState>;
-
-const stageStore: StageStore = loadJson<StageStore>("stage.json", {});
-
-function getOrInit(competitionId: string): StageState {
-  if (!stageStore[competitionId]) {
-    stageStore[competitionId] = {
-      currentNumber: 0,
-      lastReportedAt: null,
-      reporterCount: 0,
-    };
-  }
-  return stageStore[competitionId];
-}
-
-// GET /api/stage/:competitionId — fetch current stage state
-router.get("/stage/:competitionId", (req, res) => {
+router.get("/stage/:competitionId", async (req, res) => {
   const { competitionId } = req.params;
-  res.json(getOrInit(competitionId));
+  const { data, error } = await supabase.from("stage").select("*").eq("competition_id", competitionId).single();
+  if (error || !data) { res.json({ currentNumber: 0, lastReportedAt: null, reporterCount: 0 }); return; }
+  res.json({ currentNumber: data.current_number, lastReportedAt: data.last_reported_at, reporterCount: data.reporter_count });
 });
 
-// POST /api/stage/:competitionId — report a new stage number
-router.post("/stage/:competitionId", (req, res) => {
+router.post("/stage/:competitionId", async (req, res) => {
   const { competitionId } = req.params;
-  const { number } = req.body as { number: number };
-
-  if (typeof number !== "number" || isNaN(number) || number < 0) {
-    res.status(400).json({ error: "Invalid number" });
-    return;
-  }
-
-  const prev = getOrInit(competitionId);
-  const updated: StageState = {
-    currentNumber: number,
-    lastReportedAt: new Date().toISOString(),
-    reporterCount: prev.reporterCount + 1,
-  };
-  stageStore[competitionId] = updated;
-  saveJson("stage.json", stageStore);
-  res.json(updated);
+  const { number } = req.body;
+  if (typeof number !== "number" || isNaN(number) || number < 0) { res.status(400).json({ error: "Invalid number" }); return; }
+  const { data: existing } = await supabase.from("stage").select("reporter_count").eq("competition_id", competitionId).single();
+  const reporterCount = (existing?.reporter_count ?? 0) + 1;
+  const { data, error } = await supabase.from("stage").upsert({ competition_id: competitionId, current_number: number, last_reported_at: new Date().toISOString(), reporter_count: reporterCount }).select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ currentNumber: data.current_number, lastReportedAt: data.last_reported_at, reporterCount: data.reporter_count });
 });
 
-// POST /api/stage/:competitionId/reset — reset to 0 when comp is created/joined fresh
-router.post("/stage/:competitionId/reset", (req, res) => {
+router.post("/stage/:competitionId/reset", async (req, res) => {
   const { competitionId } = req.params;
-  const fresh: StageState = {
-    currentNumber: 0,
-    lastReportedAt: null,
-    reporterCount: 0,
-  };
-  stageStore[competitionId] = fresh;
-  saveJson("stage.json", stageStore);
-  res.json(fresh);
+  const { data, error } = await supabase.from("stage").upsert({ competition_id: competitionId, current_number: 0, last_reported_at: null, reporter_count: 0 }).select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ currentNumber: data.current_number, lastReportedAt: data.last_reported_at, reporterCount: data.reporter_count });
 });
 
 export default router;

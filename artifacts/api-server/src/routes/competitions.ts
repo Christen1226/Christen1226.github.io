@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { loadJson, saveJson } from "../persistence.js";
+import { supabase } from "../lib/supabase.js";
 
 export interface ApiCompetition {
   id: string;
@@ -14,54 +14,40 @@ export interface ApiCompetition {
 
 const router: IRouter = Router();
 
-const competitionsStore = new Map<string, ApiCompetition>(
-  (loadJson<ApiCompetition[]>("competitions.json", [])).map((c) => [c.id, c])
-);
-
-function persist() {
-  saveJson("competitions.json", Array.from(competitionsStore.values()));
-}
-
-// GET /api/competitions — returns all user-created competitions
-router.get("/competitions", (_req, res) => {
-  res.json({ competitions: Array.from(competitionsStore.values()) });
+router.get("/competitions", async (_req, res) => {
+  const { data, error } = await supabase.from("competitions").select("*");
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  const competitions = (data ?? []).map((c) => ({ id: c.id, name: c.name, venue: c.venue, location: c.location, startDate: c.start_date, endDate: c.end_date, createdBy: c.created_by, memberCount: c.member_count }));
+  res.json({ competitions });
 });
 
-// POST /api/competitions — create a new competition
-router.post("/competitions", (req, res) => {
+router.post("/competitions", async (req, res) => {
   const comp = req.body as ApiCompetition;
-  if (!comp.id || !comp.name) {
-    res.status(400).json({ error: "id and name are required" });
-    return;
-  }
-  competitionsStore.set(comp.id, comp);
-  persist();
+  if (!comp.id || !comp.name) { res.status(400).json({ error: "id and name are required" }); return; }
+  const { error } = await supabase.from("competitions").upsert({ id: comp.id, name: comp.name, venue: comp.venue, location: comp.location, start_date: comp.startDate, end_date: comp.endDate, created_by: comp.createdBy, member_count: comp.memberCount ?? 0 });
+  if (error) { res.status(500).json({ error: error.message }); return; }
   res.json({ ok: true, competition: comp });
 });
 
-// PATCH /api/competitions/:id — update dates (or other fields)
-router.patch("/competitions/:id", (req, res) => {
+router.patch("/competitions/:id", async (req, res) => {
   const { id } = req.params;
-  const existing = competitionsStore.get(id);
-  if (!existing) {
-    res.status(404).json({ error: "Competition not found" });
-    return;
-  }
-  const updated = { ...existing, ...req.body } as ApiCompetition;
-  competitionsStore.set(id, updated);
-  persist();
-  res.json({ ok: true, competition: updated });
+  const body = req.body as Partial<ApiCompetition>;
+  const update: Record<string, unknown> = {};
+  if (body.name) update.name = body.name;
+  if (body.venue) update.venue = body.venue;
+  if (body.location) update.location = body.location;
+  if (body.startDate) update.start_date = body.startDate;
+  if (body.endDate) update.end_date = body.endDate;
+  if (body.memberCount !== undefined) update.member_count = body.memberCount;
+  const { data, error } = await supabase.from("competitions").update(update).eq("id", id).select().single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ ok: true, competition: data });
 });
 
-// DELETE /api/competitions/:id
-router.delete("/competitions/:id", (req, res) => {
+router.delete("/competitions/:id", async (req, res) => {
   const { id } = req.params;
-  if (!competitionsStore.has(id)) {
-    res.status(404).json({ error: "Competition not found" });
-    return;
-  }
-  competitionsStore.delete(id);
-  persist();
+  const { error } = await supabase.from("competitions").delete().eq("id", id);
+  if (error) { res.status(500).json({ error: error.message }); return; }
   res.json({ ok: true });
 });
 
