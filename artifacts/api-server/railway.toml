@@ -1,0 +1,7 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm install -g pnpm && pnpm install --no-frozen-lockfile && pnpm run build"
+
+[deploy]
+startCommand = "node --enable-source-maps ./dist/index.mjs"
+restartPolicyType = "on-failure"
