@@ -2,7 +2,7 @@
 nixPkgs = ["nodejs_18"]
 
 [phases.install]
-cmds = ["npm install -g pnpm", "pnpm install --no-frozen-lockfile"]
+cmds = ["corepack enable", "corepack prepare pnpm@8.15.6 --activate", "pnpm install --no-frozen-lockfile"]
 
 [phases.build]
 cmds = ["pnpm run build"]
