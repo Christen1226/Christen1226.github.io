@@ -4,4 +4,3 @@ buildCommand = "npm install -g pnpm && pnpm install --no-frozen-lockfile && pnpm
 
 [deploy]
 startCommand = "node --enable-source-maps ./dist/index.mjs"
-restartPolicyType = "on-failure"
