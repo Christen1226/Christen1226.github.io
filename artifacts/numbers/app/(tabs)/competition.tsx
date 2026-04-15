@@ -663,21 +663,49 @@ export default function CompetitionScreen() {
           <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Pressable>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>Report Stage Number</Text>
-              <TextInput
-                style={[
-                  styles.bigInput,
-                  { backgroundColor: colors.surface, color: colors.foreground, borderColor: colors.border },
-                ]}
-                placeholder="Enter #"
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="number-pad"
-                value={reportNumInput}
-                onChangeText={setReportNumInput}
-                autoFocus
-                returnKeyType="done"
-                onSubmitEditing={handleQuickReport}
-                maxLength={4}
-              />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <Pressable
+                  onPress={() => {
+                    const n = parseInt(reportNumInput || '0', 10);
+                    if (n > 0) setReportNumInput(String(n - 1));
+                  }}
+                  style={({ pressed }) => [{
+                    width: 52, height: 64, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+                    opacity: pressed ? 0.7 : 1
+                  }]}
+                >
+                  <Text style={{ fontSize: 28, color: colors.foreground, fontFamily: 'Inter_600SemiBold' }}>−</Text>
+                </Pressable>
+                <TextInput
+                  style={[
+                    styles.bigInput,
+                    { flex: 1, marginBottom: 0, backgroundColor: colors.surface, color: '#F0ECF7', borderColor: colors.border },
+                  ]}
+                  placeholder="Enter #"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="number-pad"
+                  value={reportNumInput}
+                  onChangeText={setReportNumInput}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleQuickReport}
+                  maxLength={4}
+                />
+                <Pressable
+                  onPress={() => {
+                    const n = parseInt(reportNumInput || '0', 10);
+                    setReportNumInput(String(n + 1));
+                  }}
+                  style={({ pressed }) => [{
+                    width: 52, height: 64, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+                    opacity: pressed ? 0.7 : 1
+                  }]}
+                >
+                  <Text style={{ fontSize: 28, color: colors.foreground, fontFamily: 'Inter_600SemiBold' }}>+</Text>
+                </Pressable>
+              </View>
               <View style={styles.modalBtns}>
                 <Pressable
                   style={[styles.cancelBtn, { borderColor: colors.border }]}
@@ -751,13 +779,13 @@ export default function CompetitionScreen() {
                 />
                 <FormField
                   label="START DATE *"
-                  placeholder="e.g. Apr 6, 2026"
+                  placeholder="MM/DD/YYYY"
                   value={newStartDate}
                   onChangeText={setNewStartDate}
                 />
                 <FormField
                   label="END DATE"
-                  placeholder="e.g. Apr 7, 2026 (leave blank if 1 day)"
+                  placeholder="MM/DD/YYYY (leave blank if 1 day)"
                   value={newEndDate}
                   onChangeText={setNewEndDate}
                 />
@@ -978,15 +1006,15 @@ export default function CompetitionScreen() {
               <View style={styles.editDatesFields}>
                 <FormField
                   label="Start Date"
-                  placeholder="e.g. Apr 6, 2026"
-                  value={editStartDate}
+                  placeholder="MM/DD/YYYY"
+              value={editStartDate}
                   onChangeText={setEditStartDate}
                   hint="Day the competition begins"
                 />
                 <FormField
                   label="End Date"
-                  placeholder="e.g. Apr 7, 2026"
-                  value={editEndDate}
+                  placeholder="MM/DD/YYYY"
+              value={editEndDate}
                   onChangeText={setEditEndDate}
                   hint="Leave blank if same as start date"
                 />

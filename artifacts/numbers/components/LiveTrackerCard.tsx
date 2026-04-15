@@ -50,6 +50,16 @@ export function LiveTrackerCard() {
     setInputValue("");
   };
 
+  const increment = () => {
+    const n = parseInt(inputValue || String(currentNumber), 10);
+    setInputValue(String((isNaN(n) ? 0 : n) + 1));
+  };
+
+  const decrement = () => {
+    const n = parseInt(inputValue || String(currentNumber), 10);
+    if (!isNaN(n) && n > 1) setInputValue(String(n - 1));
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.header}>
@@ -90,12 +100,18 @@ export function LiveTrackerCard() {
 
       <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>REPORT CURRENT NUMBER</Text>
       <View style={styles.inputRow}>
+        <Pressable
+          onPress={decrement}
+          style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
+        >
+          <Text style={[styles.stepBtnText, { color: colors.foreground }]}>−</Text>
+        </Pressable>
         <TextInput
           style={[
             styles.input,
             {
               backgroundColor: colors.surface,
-              color: colors.foreground,
+              color: '#F0ECF7',
               borderColor: colors.border,
             },
           ]}
@@ -108,6 +124,12 @@ export function LiveTrackerCard() {
           onSubmitEditing={handleSubmit}
           maxLength={4}
         />
+        <Pressable
+          onPress={increment}
+          style={({ pressed }) => [styles.stepBtn, { backgroundColor: colors.surface, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
+        >
+          <Text style={[styles.stepBtnText, { color: colors.foreground }]}>+</Text>
+        </Pressable>
         <Pressable
           style={({ pressed }) => [
             styles.submitBtn,
@@ -193,6 +215,19 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: "row",
     gap: 10,
+  },
+  stepBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepBtnText: {
+    fontSize: 24,
+    lineHeight: 28,
+    fontFamily: "Inter_600SemiBold",
   },
   input: {
     flex: 1,
