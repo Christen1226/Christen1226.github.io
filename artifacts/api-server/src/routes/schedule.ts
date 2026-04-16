@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { loadJson, saveJson } from "../persistence.js";
+import { supabase } from "../lib/supabase.js";
 
 interface UploadedImage {
   id: string;
@@ -8,42 +8,44 @@ interface UploadedImage {
   uploadedBy?: string;
 }
 
-type ScheduleStore = Record<string, UploadedImage[]>;
-
 const router: IRouter = Router();
-const scheduleStore: ScheduleStore = loadJson<ScheduleStore>("schedule.json", {});
 
-router.get("/schedule/:competitionId", (req, res) => {
+router.get("/schedule/:competitionId", async (req, res) => {
   const { competitionId } = req.params;
-  res.json({ images: scheduleStore[competitionId] ?? [] });
+  const { data, error } = await supabase
+    .from("schedule_images")
+    .select("*")
+    .eq("competition_id", competitionId)
+    .order("uploaded_at", { ascending: true });
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  const images: UploadedImage[] = (data ?? []).map((r) => ({
+    id: r.id, image: r.image, uploadedAt: r.uploaded_at, uploadedBy: r.uploaded_by
+  }));
+  res.json({ images });
 });
 
-router.post("/schedule/:competitionId", (req, res) => {
+router.post("/schedule/:competitionId", async (req, res) => {
   const { competitionId } = req.params;
   const { image, uploadedBy } = req.body as { image: string; uploadedBy?: string };
-
   if (typeof image !== "string" || !image.startsWith("data:image")) {
-    res.status(400).json({ error: "Invalid image data" });
-    return;
+    res.status(400).json({ error: "Invalid image data" }); return;
   }
-
-  const entry: UploadedImage = {
+  const entry = {
     id: Date.now().toString(36) + Math.random().toString(36).substr(2, 6),
+    competition_id: competitionId,
     image,
-    uploadedAt: new Date().toISOString(),
-    uploadedBy,
+    uploaded_at: new Date().toISOString(),
+    uploaded_by: uploadedBy,
   };
-  scheduleStore[competitionId] = [...(scheduleStore[competitionId] ?? []), entry];
-  saveJson("schedule.json", scheduleStore);
+  const { error } = await supabase.from("schedule_images").insert(entry);
+  if (error) { res.status(500).json({ error: error.message }); return; }
   res.json({ ok: true, id: entry.id });
 });
 
-router.delete("/schedule/:competitionId/:imageId", (req, res) => {
-  const { competitionId, imageId } = req.params;
-  scheduleStore[competitionId] = (scheduleStore[competitionId] ?? []).filter(
-    (e) => e.id !== imageId
-  );
-  saveJson("schedule.json", scheduleStore);
+router.delete("/schedule/:competitionId/:imageId", async (req, res) => {
+  const { imageId } = req.params;
+  const { error } = await supabase.from("schedule_images").delete().eq("id", imageId);
+  if (error) { res.status(500).json({ error: error.message }); return; }
   res.json({ ok: true });
 });
 
