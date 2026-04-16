@@ -38,14 +38,17 @@ function AppShell() {
   const { userLoaded, isSignedIn } = useApp();
   const [splashDone, setSplashDone] = useState(false);
 
+  // Only show profile setup when we are CERTAIN the user has never signed in.
+  // userLoaded=true means AsyncStorage has fully loaded — if isSignedIn is
+  // still false at that point, it's a genuine new user, not a loading race.
   const needsProfile = splashDone && userLoaded && !isSignedIn;
 
+  // While splash is done but user data hasn't loaded yet, show nothing extra
+  // so we never flash the profile screen for returning users.
   return (
     <View style={styles.root}>
       <RootLayoutNav />
-      {/* Splash plays first, always */}
       {!splashDone && <SplashOverlay onDone={() => setSplashDone(true)} />}
-      {/* Profile setup blocks the app for new users, appears after splash */}
       {needsProfile && <ProfileSetup />}
     </View>
   );
