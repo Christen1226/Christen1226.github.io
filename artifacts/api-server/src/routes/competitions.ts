@@ -44,6 +44,26 @@ router.patch("/competitions/:id", async (req, res) => {
   res.json({ ok: true, competition: data });
 });
 
+
+// POST /api/competitions/:id/join — increment member count
+router.post("/competitions/:id/join", async (req, res) => {
+  const { id } = req.params;
+  const { data: existing, error: fetchError } = await supabase
+    .from("competitions")
+    .select("member_count")
+    .eq("id", id)
+    .single();
+  if (fetchError || !existing) { res.status(404).json({ error: "Competition not found" }); return; }
+  const { data, error } = await supabase
+    .from("competitions")
+    .update({ member_count: existing.member_count + 1 })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) { res.status(500).json({ error: error.message }); return; }
+  res.json({ ok: true, memberCount: data.member_count });
+});
+
 router.delete("/competitions/:id", async (req, res) => {
   const { id } = req.params;
   const { error } = await supabase.from("competitions").delete().eq("id", id);
