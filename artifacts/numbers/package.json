@@ -63,6 +63,7 @@
   },
   "dependencies": {
     "expo": "~54.0.33",
+    "expo-build-properties": "^55.0.13",
     "react": "19.1.0",
     "react-native": "0.81.5"
   },
