@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import filesRouter from "./files.js";
 import scheduleRouter from "./schedule";
 import scoringRouter from "./scoring";
 import stageRouter from "./stage";
@@ -10,6 +11,7 @@ const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(stageRouter);
+router.use(filesRouter);
 router.use(scheduleRouter);
 router.use(scoringRouter);
 router.use(reportsRouter);

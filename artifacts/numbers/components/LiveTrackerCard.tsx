@@ -30,7 +30,16 @@ function formatTimeAgo(date: Date): string {
 
 export function LiveTrackerCard() {
   const colors = useColors();
-  const { currentNumber, lastReportedAt, reporterCount, submitCurrentNumber, isLive } = useApp();
+  const { currentNumber, lastReportedAt, reporterCount, submitCurrentNumber, isLive, competition } = useApp();
+
+  // Only show LIVE if competition has started
+  const competitionStarted = (() => {
+    if (!competition?.startDate) return false;
+    const start = new Date(competition.startDate);
+    if (isNaN(start.getTime())) return false;
+    return new Date() >= start;
+  })();
+  const showLive = isLive && competitionStarted;
   const [inputValue, setInputValue] = useState("");
   const scale = useSharedValue(1);
   const glow = useSharedValue(1);
@@ -63,10 +72,10 @@ export function LiveTrackerCard() {
   return (
     <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.header}>
-        <View style={[styles.liveDot, { backgroundColor: isLive ? colors.green : colors.mutedForeground }]} />
+        <View style={[styles.liveDot, { backgroundColor: showLive ? colors.green : colors.mutedForeground }]} />
         <Text style={[styles.headerLabel, { color: colors.mutedForeground }]}>ON STAGE NOW</Text>
         <View style={styles.syncBadge}>
-          {isLive ? (
+          {showLive ? (
             <>
               <View style={[styles.syncDot, { backgroundColor: colors.green }]} />
               <Text style={[styles.syncText, { color: colors.green }]}>LIVE</Text>

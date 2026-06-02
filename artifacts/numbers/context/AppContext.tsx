@@ -34,6 +34,15 @@ export interface UploadedImage {
   uploadedBy?: string;
 }
 
+export interface CompetitionFile {
+  id: string;
+  competitionId: string;
+  name: string;
+  data: string;
+  uploadedAt: string;
+  uploadedBy?: string;
+}
+
 interface AppContextValue {
   userLoaded: boolean;
   currentNumber: number;
@@ -54,6 +63,9 @@ interface AppContextValue {
   scoringImages: UploadedImage[];
   uploadScoring: (base64Uri: string) => Promise<void>;
   deleteScoringImage: (id: string) => Promise<void>;
+  competitionFiles: CompetitionFile[];
+  uploadFile: (name: string, data: string) => Promise<void>;
+  deleteFile: (id: string) => Promise<void>;
   refreshStage: () => Promise<void>;
   refreshCompetitions: () => Promise<void>;
   submitCurrentNumber: (num: number) => void;
@@ -227,6 +239,27 @@ async function fetchImages(competitionId: string, type: "schedule" | "scoring"):
   }
 }
 
+
+async function joinApiCompetition(id: string): Promise<number | null> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/competitions/${id}/join`, { method: "POST" });
+    if (!res.ok) return null;
+    const data = await res.json() as { ok: boolean; memberCount: number };
+    return data.memberCount;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchFiles(competitionId: string): Promise<CompetitionFile[] | null> {
+  try {
+    const res = await fetch(`${getApiBase()}/api/files/${competitionId}`);
+    if (!res.ok) return null;
+    const data = await res.json() as { files: CompetitionFile[] };
+    return Array.isArray(data.files) ? data.files : null;
+  } catch { return null; }
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentNumber, setCurrentNumber] = useState(0);
   const [lastReportedAt, setLastReportedAt] = useState<Date | null>(null);
@@ -242,6 +275,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLive, setIsLive] = useState(false);
   const [scheduleImages, setScheduleImages] = useState<UploadedImage[]>([]);
   const [scoringImages, setScoringImages] = useState<UploadedImage[]>([]);
+  const [competitionFiles, setCompetitionFiles] = useState<CompetitionFile[]>([]);
   const [joinedCompetitionIds, setJoinedCompetitionIds] = useState<string[]>([]);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -252,6 +286,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const load = async () => {
       try {
+        // Load cached data FIRST so UI shows immediately
+        const compsJsonEarly = await AsyncStorage.getItem("competitions");
+        if (compsJsonEarly) {
+          try {
+            const cached: Competition[] = JSON.parse(compsJsonEarly);
+            const liveCached = cached.filter((c) => !isExpiredComp(c)).sort((a, b) => a.name.localeCompare(b.name));
+            if (liveCached.length > 0) setAllCompetitions(liveCached);
+          } catch {}
+        }
+        const userJsonEarly = await AsyncStorage.getItem("user");
+        if (userJsonEarly) {
+          try {
+            const user = JSON.parse(userJsonEarly);
+            setIsSignedIn(true);
+            setUserName(user.name);
+            if (user.profileImage) setProfileImageState(user.profileImage);
+          } catch {}
+        }
+        const joinedJsonEarly = await AsyncStorage.getItem("joinedCompetitions");
+        if (joinedJsonEarly) {
+          try {
+            const ids: string[] = JSON.parse(joinedJsonEarly);
+            setJoinedCompetitionIds(ids);
+          } catch {}
+        }
+        const activeCompJsonEarly = await AsyncStorage.getItem("activeCompetition");
+        if (activeCompJsonEarly) {
+          try {
+            const active: Competition = JSON.parse(activeCompJsonEarly);
+            if (!isExpiredComp(active)) setCompetitionState(active);
+          } catch {}
+        }
+        // NOW fetch fresh data from API in background
         const apiComps = await fetchApiCompetitions();
         const apiIds = new Set(apiComps.map((c) => c.id));
         const merged = [...apiComps];
@@ -262,7 +329,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (!apiIds.has(s.id)) merged.push(s);
           }
         }
-        const live = merged.filter((c) => !isExpiredComp(c));
+        const live = merged.filter((c) => !isExpiredComp(c)).sort((a, b) => a.name.localeCompare(b.name));
         setAllCompetitions(live);
 
         const activeCompJson = await AsyncStorage.getItem("activeCompetition");
@@ -365,18 +432,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const pollImages = async () => {
       const compId = competitionRef.current?.id;
       if (!compId) return;
-      const [schedData, scorData] = await Promise.all([
+      const [schedData, scorData, filesData] = await Promise.all([
         fetchImages(compId, "schedule"),
         fetchImages(compId, "scoring"),
+        fetchFiles(compId),
       ]);
       if (schedData !== null) {
         setScheduleImages(schedData);
         AsyncStorage.setItem(`schedule_${compId}`, JSON.stringify(schedData)).catch(() => {});
       }
-      if (scorData !== null) {
-        setScoringImages(scorData);
-        AsyncStorage.setItem(`scoring_${compId}`, JSON.stringify(scorData)).catch(() => {});
+      if (sorData !== null) {
+        setScoringImages(sorData);
+        AsyncStorage.setItem(`scoring_${compId}`, JSON.stringify(sorData)).catch(() => {});
       }
+      if (filesData !== null) setCompetitionFiles(filesData);
     };
 
     poll();
@@ -493,6 +562,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try { await fetch(`${getApiBase()}/api/scoring/${compId}/${id}`, { method: "DELETE" }); } catch {}
   }, []);
 
+  const uploadFile = useCallback(async (name: string, data: string) => {
+    const compId = competitionRef.current?.id;
+    if (!compId) return;
+    const localEntry: CompetitionFile = {
+      id: "local_" + Date.now().toString(36), competitionId: compId,
+      name, data, uploadedAt: new Date().toISOString(),
+    };
+    setCompetitionFiles((prev) => [...prev, localEntry]);
+    try {
+      const res = await fetch(`${getApiBase()}/api/files/${compId}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, data, uploadedBy: competitionRef.current?.createdBy }),
+      });
+      if (res.ok) {
+        const result = await res.json() as { ok: boolean; id: string };
+        setCompetitionFiles((prev) => prev.map((f) => f.id === localEntry.id ? { ...f, id: result.id } : f));
+      }
+    } catch {}
+  }, []);
+
+  const deleteFile = useCallback(async (id: string) => {
+    const compId = competitionRef.current?.id;
+    if (!compId) return;
+    setCompetitionFiles((prev) => prev.filter((f) => f.id !== id));
+    try {
+      await fetch(`${getApiBase()}/api/files/${compId}/${id}`, { method: "DELETE" });
+    } catch {}
+  }, []);
+
   const refreshStage = useCallback(async () => {
     const comp = competitionRef.current;
     if (!comp) return;
@@ -519,7 +617,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (!apiIds.has(s.id)) merged.push(s);
         }
       }
-      const live = merged.filter((c) => !isExpiredComp(c));
+      const live = merged.filter((c) => !isExpiredComp(c)).sort((a, b) => a.name.localeCompare(b.name));
       setAllCompetitions(live);
       setCompetitionState((cur) => {
         if (cur && isExpiredComp(cur)) {
@@ -580,6 +678,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
     addToJoined(id);
+    joinApiCompetition(id).then((count) => {
+      if (count !== null) {
+        setAllCompetitions((prev) =>
+          prev.map((c) => c.id === id ? { ...c, memberCount: count } : c)
+        );
+      }
+    });
     fetchStage(id).then((data) => {
       if (data) {
         setCurrentNumber(data.currentNumber);
@@ -725,6 +830,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         joinedCompetitionIds, setCompetition, createCompetition, updateCompetitionDates,
         joinCompetition, switchCompetition, leaveCompetition, deleteCompetition,
         signIn, signOut, setProfileImage,
+        competitionFiles, uploadFile, deleteFile,
       }}
     >
       {children}

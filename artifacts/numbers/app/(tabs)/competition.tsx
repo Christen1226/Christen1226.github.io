@@ -375,6 +375,14 @@ export default function CompetitionScreen() {
   };
 
   const isJoined = !!competition && joinedCompetitionIds.includes(competition.id);
+
+  // Only show green dot if competition has started
+  const competitionStarted = (() => {
+    if (!competition?.startDate) return false;
+    const start = new Date(competition.startDate);
+    if (isNaN(start.getTime())) return false;
+    return new Date() >= start;
+  })();
   const canCreate = newName.trim().length > 0 && newLocation.trim().length > 0 && newStartDate.trim().length > 0;
 
   return (
@@ -421,7 +429,7 @@ export default function CompetitionScreen() {
         {competition && (
           <View style={[styles.trackerStrip, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.stripLeft}>
-              <View style={[styles.liveDot, { backgroundColor: colors.green }]} />
+              <View style={[styles.liveDot, { backgroundColor: competitionStarted ? colors.green : colors.mutedForeground }]} />
               <View>
                 <Text style={[styles.stripCompName, { color: colors.mutedForeground }]} numberOfLines={1}>
                   {competition.name}
