@@ -204,7 +204,7 @@ function FormField({
 export default function CompetitionScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, leaveCompetition, deleteCompetition, createCompetition, updateCompetitionDates, userName, refreshCompetitions, scheduleImages, uploadSchedule, scoringImages, uploadScoring, joinedCompetitionIds } =
+  const { currentNumber, submitCurrentNumber, competition, allCompetitions, joinCompetition, switchCompetition, leaveCompetition, deleteCompetition, createCompetition, updateCompetitionDates, userName, refreshCompetitions, scheduleImages, uploadSchedule, scoringImages, uploadScoring, joinedCompetitionIds, competitionFiles, uploadFile, deleteFile } =
     useApp();
   const router = useRouter();
 
@@ -212,6 +212,7 @@ export default function CompetitionScreen() {
   const [publishingSchedule, setPublishingSchedule] = useState(false);
   const [pendingScoring, setPendingScoring] = useState<string | null>(null);
   const [publishingScoring, setPublishingScoring] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   // Success toast
   const [toastMsg, setToastMsg] = useState("");
@@ -372,6 +373,27 @@ export default function CompetitionScreen() {
     setPublishingScoring(false);
     setPendingScoring(null);
     showToast("Rubric published to competition");
+  };
+
+  const handlePickFile = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        base64: true,
+        quality: 0.8,
+        allowsEditing: false,
+      });
+      if (result.canceled || !result.assets[0]) return;
+      const asset = result.assets[0];
+      const mime = asset.mimeType ?? "image/jpeg";
+      const name = asset.fileName ?? `file_${Date.now()}`;
+      setUploadingFile(true);
+      await uploadFile(name, `data:${mime};base64,${asset.base64}`);
+      setUploadingFile(false);
+      showToast("File uploaded to competition");
+    } catch {
+      setUploadingFile(false);
+    }
   };
 
   const isJoined = !!competition && joinedCompetitionIds.includes(competition.id);
@@ -587,6 +609,63 @@ export default function CompetitionScreen() {
                 <Text style={[styles.scheduleUploadHint, { color: colors.mutedForeground }]}>
                   Join to upload scoring rubrics
                 </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Files section */}
+        {competition && (
+          <View style={[styles.scheduleSection, { backgroundColor: colors.card, borderColor: colors.border, marginBottom: 16 }]}>
+            <View style={styles.scheduleSectionHeader}>
+              <Feather name="paperclip" size={16} color={colors.violet} />
+              <Text style={[styles.scheduleSectionTitle, { color: colors.foreground }]}>Files</Text>
+            </View>
+
+            {competitionFiles.length > 0 ? (
+              <View style={{ gap: 8 }}>
+                {competitionFiles.map((file) => (
+                  <View key={file.id} style={[styles.fileRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Feather name="file" size={14} color={colors.violet} />
+                    <Text style={[styles.fileName, { color: colors.foreground }]} numberOfLines={1}>{file.name}</Text>
+                    {isJoined && (
+                      <Pressable onPress={() => deleteFile(file.id)} hitSlop={8}>
+                        <Feather name="x" size={14} color={colors.mutedForeground} />
+                      </Pressable>
+                    )}
+                  </View>
+                ))}
+                {isJoined && (
+                  <Pressable
+                    onPress={handlePickFile}
+                    disabled={uploadingFile}
+                    style={({ pressed }) => [styles.scheduleUploadArea, { borderColor: colors.border, opacity: pressed || uploadingFile ? 0.7 : 1 }]}
+                  >
+                    <Feather name="upload" size={18} color={colors.mutedForeground} />
+                    <Text style={[styles.scheduleUploadText, { color: colors.mutedForeground }]}>
+                      {uploadingFile ? "Uploading..." : "Upload another file"}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            ) : isJoined ? (
+              <Pressable
+                onPress={handlePickFile}
+                disabled={uploadingFile}
+                style={({ pressed }) => [styles.scheduleUploadArea, { borderColor: colors.border, opacity: pressed || uploadingFile ? 0.7 : 1 }]}
+              >
+                <Feather name="upload" size={18} color={colors.mutedForeground} />
+                <Text style={[styles.scheduleUploadText, { color: colors.mutedForeground }]}>
+                  {uploadingFile ? "Uploading..." : "Upload a file"}
+                </Text>
+                <Text style={[styles.scheduleUploadHint, { color: colors.mutedForeground }]}>
+                  PDFs, images, docs — visible to all members
+                </Text>
+              </Pressable>
+            ) : (
+              <View style={[styles.scheduleUploadArea, { borderColor: colors.border, opacity: 0.5 }]}>
+                <Feather name="lock" size={18} color={colors.mutedForeground} />
+                <Text style={[styles.scheduleUploadText, { color: colors.mutedForeground }]}>Members only</Text>
               </View>
             )}
           </View>
@@ -1414,6 +1493,19 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
 
+  fileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  fileName: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+  },
   scheduleSection: {
     borderRadius: 16,
     borderWidth: 1,
